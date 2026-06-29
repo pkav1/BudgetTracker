@@ -566,6 +566,52 @@ body {
 .dark .danger-btn { border-color: #5a2020; color: #e05555; }
 .dark .danger-btn:hover { background: #2d1414; }
 
+/* ── Investments ── */
+.inv-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.inv-header {
+  display: grid;
+  grid-template-columns: 1fr 70px 90px 90px;
+  font-size: 11px;
+  color: #898781;
+  padding: 6px 0;
+  border-bottom: 0.5px solid #e1e0d9;
+  margin-bottom: 2px;
+}
+.inv-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 90px 90px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 0.5px solid #f1efe8;
+  font-size: 13px;
+}
+.inv-row:last-child { border-bottom: none; }
+.inv-right { text-align: right; }
+.inv-ticker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #0b0b0b;
+}
+.inv-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.inv-qty   { color: #898781; }
+.inv-value { font-weight: 500; color: #0b0b0b; }
+.inv-pnl   { font-weight: 500; }
+.inv-pnl.pos { color: #3b6d11; }
+.inv-pnl.neg { color: #e24b4a; }
+
+.dark .inv-header { border-bottom-color: #2a2a2a; }
+.dark .inv-row { border-bottom-color: #2a2a2a; }
+.dark .inv-ticker { color: #ffffff; }
+.dark .inv-value { color: #ffffff; }
+.dark .inv-qty { color: #666666; }
+.dark .inv-pnl.pos { color: #5a9e2f; }
+
 /* ── Planner ── */
 .planner-income-row {
   display: flex;

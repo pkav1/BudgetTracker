@@ -50,6 +50,12 @@ const ACCOUNTS = [
   { id: "revolut", name: "Revolut", color: "#191c33" },
 ];
 
+const CHART_COLORS = [
+  "#2a78d6","#1baf7a","#e34948","#eda100","#4a3aa7",
+  "#854f0b","#0f6e56","#185fa5","#e87ba4","#639922",
+  "#eb6834","#0ca30c","#898781","#52514e","#a32d2d",
+];
+
 function getWeekRange(offset = 0) {
   const now = new Date();
   const day = now.getDay() || 7;
@@ -397,6 +403,9 @@ export default function App() {
   const [importMsg, setImportMsg] = useState(null);
   const [pwResetMsg, setPwResetMsg] = useState(null);
   const [planner, setPlanner] = useState(PLANNER_DEFAULT);
+  const [portfolio, setPortfolio] = useState(null);   // null=never fetched, []=empty, [{…}]=loaded
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioError, setPortfolioError] = useState(null);
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
   const saveTimers = useRef({});
@@ -414,8 +423,29 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", planner: "Planner", settings: "Settings" };
+    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
     document.title = `${names[tab] ?? tab} — Budget Tracker`;
+  }, [tab]);
+
+  async function loadPortfolio() {
+    setPortfolioLoading(true);
+    setPortfolioError(null);
+    try {
+      const r = await fetch("/api/trading212?endpoint=equity/portfolio");
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      setPortfolio(Array.isArray(data) ? data : (data.items ?? []));
+    } catch (err) {
+      setPortfolioError(err.message);
+    } finally {
+      setPortfolioLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab === "investments" && portfolio === null && !portfolioLoading && !portfolioError) {
+      loadPortfolio();
+    }
   }, [tab]);
 
   function debounceSave(key, fn, delay = 600) {
@@ -438,6 +468,8 @@ export default function App() {
         setSavings([]);
         setMerchantRules([]);
         setPlanner(PLANNER_DEFAULT);
+        setPortfolio(null);
+        setPortfolioError(null);
         setLoading(false);
       }
     });
@@ -758,6 +790,16 @@ export default function App() {
     { label: "Target", data: savings.map((v) => v.target), backgroundColor: "#2a78d622", borderRadius: 4, borderSkipped: false },
   ];
 
+  // ── Portfolio derived ──────────────────────────────────────────────────────
+
+  const sortedPortfolio = portfolio
+    ? [...portfolio].sort((a, b) => (b.quantity * b.currentPrice) - (a.quantity * a.currentPrice))
+    : [];
+  const pfTotalValue    = sortedPortfolio.reduce((s, p) => s + p.quantity * p.currentPrice, 0);
+  const pfTotalInvested = sortedPortfolio.reduce((s, p) => s + p.quantity * (p.averagePrice ?? p.averageBuyPrice ?? 0), 0);
+  const pfTotalPnL      = sortedPortfolio.reduce((s, p) => s + (p.ppl ?? 0), 0);
+  const pfPnLPct        = pfTotalInvested > 0 ? (pfTotalPnL / pfTotalInvested) * 100 : 0;
+
   // ── Planner derived ────────────────────────────────────────────────────────
 
   const investEur = planner.investment_mode === "pct"
@@ -798,7 +840,7 @@ export default function App() {
         <div className="header-inner">
           <span className="logo">💶 Budget</span>
           <nav className="tabs">
-            {["dashboard","budget","import","savings","planner","settings"].map((t) => (
+            {["dashboard","budget","import","savings","investments","planner","settings"].map((t) => (
               <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -1047,6 +1089,108 @@ export default function App() {
                 <BarChart labels={savings.map((v) => v.name)} datasets={savingsDatasets} />
               </div>
             </div>
+          </>
+        )}
+
+        {/* INVESTMENTS */}
+        {tab === "investments" && (
+          <>
+            {portfolioLoading && (
+              <div className="card">
+                <div className="skel" style={{ height: 14, width: 160, marginBottom: 20 }} />
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "0.5px solid #f1efe8" }}>
+                    <div className="skel" style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0 }} />
+                    <div className="skel" style={{ height: 13, width: 60 }} />
+                    <div style={{ flex: 1 }} />
+                    <div className="skel" style={{ height: 13, width: 70 }} />
+                    <div className="skel" style={{ height: 13, width: 60 }} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {portfolioError && (
+              <div className="card">
+                <EmptyState emoji="⚠️" headline="Could not load portfolio" sub={portfolioError} />
+                <div style={{ textAlign: "center", marginTop: 4 }}>
+                  <button className="settings-btn" onClick={() => { setPortfolioError(null); loadPortfolio(); }}>
+                    Retry
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {portfolio !== null && !portfolioLoading && !portfolioError && (
+              <>
+                <div className="metric-row">
+                  {[
+                    { label: "Portfolio value", value: `€${pfTotalValue.toFixed(2)}` },
+                    { label: "Total invested",  value: `€${pfTotalInvested.toFixed(2)}` },
+                    { label: "Profit / Loss",   value: `${pfTotalPnL >= 0 ? "+" : ""}€${pfTotalPnL.toFixed(2)}`,
+                      sub: `${pfPnLPct >= 0 ? "+" : ""}${pfPnLPct.toFixed(2)}%`, warn: pfTotalPnL < 0 },
+                  ].map((m) => (
+                    <div className="metric" key={m.label}>
+                      <div className="metric-label">{m.label}</div>
+                      <div className={`metric-value${m.warn ? " over" : ""}`}>{m.value}</div>
+                      {m.sub && <div className="metric-sub">{m.sub}</div>}
+                    </div>
+                  ))}
+                </div>
+
+                {sortedPortfolio.length === 0 ? (
+                  <div className="card">
+                    <EmptyState emoji="📈" headline="No positions yet" sub="Your Trading 212 portfolio is empty — positions will appear here once you invest" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="card">
+                      <div className="card-title inv-title-row">
+                        <span>Holdings</span>
+                        <button className="settings-btn" style={{ fontSize: 12 }} onClick={() => { setPortfolio(null); setPortfolioError(null); loadPortfolio(); }}>↺ Refresh</button>
+                      </div>
+                      <div className="inv-header">
+                        <span>Ticker</span>
+                        <span className="inv-right">Qty</span>
+                        <span className="inv-right">Value</span>
+                        <span className="inv-right">P&amp;L</span>
+                      </div>
+                      {sortedPortfolio.map((p, i) => {
+                        const value   = p.quantity * p.currentPrice;
+                        const pnl     = p.ppl ?? 0;
+                        const ticker  = p.ticker.split("_")[0];
+                        const qty     = p.quantity % 1 === 0 ? p.quantity : p.quantity.toFixed(4);
+                        return (
+                          <div key={p.ticker} className="inv-row">
+                            <div className="inv-ticker">
+                              <span className="inv-dot" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                              <span>{ticker}</span>
+                            </div>
+                            <span className="inv-right inv-qty">{qty}</span>
+                            <span className="inv-right inv-value">€{value.toFixed(2)}</span>
+                            <span className={`inv-right inv-pnl ${pnl >= 0 ? "pos" : "neg"}`}>
+                              {pnl >= 0 ? "+" : ""}€{pnl.toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="card">
+                      <div className="card-title">Allocation</div>
+                      <div className="chart-wrap" style={{ height: 320 }}>
+                        <DoughnutChart
+                          labels={sortedPortfolio.map((p) => p.ticker.split("_")[0])}
+                          data={sortedPortfolio.map((p) => parseFloat((p.quantity * p.currentPrice).toFixed(2)))}
+                          colors={sortedPortfolio.map((_, i) => CHART_COLORS[i % CHART_COLORS.length])}
+                          textColor={darkMode ? "#a0a0a0" : "#52514e"}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </>
         )}
 
