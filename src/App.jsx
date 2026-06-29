@@ -5,14 +5,19 @@ import { supabase } from "./supabase";
 
 const CATEGORIES = [
   { name: "Groceries", icon: "🛒", color: "#2a78d6", weekly: 80, keywords: ["tesco","supervalu","lidl","aldi","dunnes","spar","centra","co-op"] },
-  { name: "Eating out", icon: "🍽️", color: "#1baf7a", weekly: 40, keywords: ["restaurant","cafe","coffee","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"] },
+  { name: "Eating out", icon: "🍽️", color: "#1baf7a", weekly: 40, keywords: ["restaurant","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"] },
+  { name: "Coffee", icon: "☕", color: "#854f0b", weekly: 20, keywords: ["blue bird","ucd nova","gather and gather","poolside cafe","starbucks","insomnia","butlers","paulig","coffeeangel"] },
   { name: "Takeaway", icon: "🛵", color: "#eda100", weekly: 30, keywords: ["deliveroo","just eat","uber eats","takeaway"] },
   { name: "Drinks / nights out", icon: "🍺", color: "#4a3aa7", weekly: 40, keywords: ["pub","bar","nightclub","off licence","o'briens"] },
   { name: "Transport", icon: "🚌", color: "#e34948", weekly: 25, keywords: ["leap","dublin bus","luas","dart","irish rail","taxi","uber","free now","bolt"] },
   { name: "Petrol", icon: "⛽", color: "#eb6834", weekly: 30, keywords: ["applegreen","circle k","maxol","topaz","texaco","esso","fuel","petrol"] },
-  { name: "Shopping", icon: "🛍️", color: "#e87ba4", weekly: 50, keywords: ["amazon","penneys","primark","zara","h&m","asos","next","marks"] },
+  { name: "Travel", icon: "✈️", color: "#185fa5", weekly: 0, keywords: ["booking.com","hostelworld","airbnb","ryanair","aer lingus","skyscanner","hotels.com","expedia","bus eireann","wexford bus","eurolines"] },
+  { name: "Shopping", icon: "🛍️", color: "#e87ba4", weekly: 50, keywords: ["amazon","penneys","primark","asos"] },
+  { name: "Clothes", icon: "👕", color: "#e87ba4", weekly: 30, keywords: ["penneys","primark","zara","h&m","asos","next","marks","tkmaxx","tk maxx","river island","pull&bear","stradivarius"] },
   { name: "Subscriptions", icon: "🔄", color: "#52514e", weekly: 15, keywords: ["netflix","spotify","disney","apple","google","microsoft","gym"] },
+  { name: "Utilities", icon: "💡", color: "#639922", weekly: 0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"] },
   { name: "Health", icon: "❤️", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist"] },
+  { name: "Sport", icon: "⚽", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"] },
   { name: "Transfers", icon: "↔️", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from"] },
   { name: "Other", icon: "•••", color: "#898781", weekly: 30, keywords: [] },
 ];
@@ -510,7 +515,7 @@ export default function App() {
                     <div className="empty-state">No transactions yet — import a Revolut CSV to get started.</div>
                   ) : (
                     <>
-                      {weekSpendTxns.slice(0, 10).map((t) => (
+                      {weekSpendTxns.map((t) => (
                         <TxnRow key={t.id} t={t} {...txnRowProps} />
                       ))}
                       {weekTransferTxns.length > 0 && (
