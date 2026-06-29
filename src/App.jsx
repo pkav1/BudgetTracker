@@ -134,6 +134,23 @@ function extractMerchant(description) {
     .join(" ");
 }
 
+function monthsUntil(yearMonth) {
+  if (!yearMonth) return null;
+  const [y, m] = yearMonth.split("-").map(Number);
+  const now = new Date();
+  const diff = (y - now.getFullYear()) * 12 + (m - 1 - now.getMonth());
+  return diff > 0 ? diff : null;
+}
+
+const PLANNER_DEFAULT = {
+  id: null,
+  monthly_income: 0,
+  investment_amount: 0,
+  investment_mode: "amount",
+  fixed_costs: [],
+  savings_dates: {},
+};
+
 function BarChart({ labels, datasets, yPrefix = "€" }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
@@ -189,6 +206,35 @@ function LineChart({ labels, data, yPrefix = "€" }) {
     });
     return () => chartRef.current?.destroy();
   }, [labels, data]);
+  return <canvas ref={ref} />;
+}
+
+function DoughnutChart({ labels, data, colors, textColor = "#52514e" }) {
+  const ref = useRef(null);
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+    chartRef.current = new Chart(ref.current, {
+      type: "doughnut",
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: textColor, font: { size: 12 }, padding: 16, boxWidth: 12 },
+          },
+          tooltip: {
+            callbacks: { label: (ctx) => ` €${ctx.parsed.toFixed(0)}` },
+          },
+        },
+      },
+    });
+    return () => chartRef.current?.destroy();
+  }, [labels, data, colors, textColor]);
   return <canvas ref={ref} />;
 }
 
@@ -350,6 +396,7 @@ export default function App() {
   const [savings, setSavings] = useState([]);
   const [importMsg, setImportMsg] = useState(null);
   const [pwResetMsg, setPwResetMsg] = useState(null);
+  const [planner, setPlanner] = useState(PLANNER_DEFAULT);
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
   const saveTimers = useRef({});
@@ -367,7 +414,7 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", settings: "Settings" };
+    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", planner: "Planner", settings: "Settings" };
     document.title = `${names[tab] ?? tab} — Budget Tracker`;
   }, [tab]);
 
@@ -390,6 +437,7 @@ export default function App() {
         setBudgets(CATEGORIES.map((c) => ({ ...c })));
         setSavings([]);
         setMerchantRules([]);
+        setPlanner(PLANNER_DEFAULT);
         setLoading(false);
       }
     });
@@ -407,7 +455,8 @@ export default function App() {
       supabase.from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false }),
       supabase.from("savings").select("*").eq("user_id", uid),
       supabase.from("merchant_rules").select("*").eq("user_id", uid).order("merchant"),
-    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }]) => {
+      supabase.from("planner").select("*").eq("user_id", uid).limit(1),
+    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }]) => {
       if (dbBudgets?.length) {
         setBudgets(CATEGORIES.map((c) => {
           const db = dbBudgets.find((b) => b.name === c.name);
@@ -417,6 +466,17 @@ export default function App() {
       if (dbTxns?.length) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
       if (dbSavings?.length) setSavings(dbSavings);
       if (dbRules?.length) setMerchantRules(dbRules);
+      if (dbPlanner?.length) {
+        const p = dbPlanner[0];
+        setPlanner({
+          id: p.id,
+          monthly_income: p.monthly_income ?? 0,
+          investment_amount: p.investment_amount ?? 0,
+          investment_mode: p.investment_mode ?? "amount",
+          fixed_costs: p.fixed_costs ?? [],
+          savings_dates: p.savings_dates ?? {},
+        });
+      }
       setLoading(false);
     });
   }, [session?.user?.id]);
@@ -638,6 +698,53 @@ export default function App() {
     setMerchantRules([]);
   }
 
+  // ── Planner ────────────────────────────────────────────────────────────────
+
+  async function persistPlanner(p) {
+    const uid = session.user.id;
+    const payload = {
+      user_id: uid,
+      monthly_income: p.monthly_income,
+      investment_amount: p.investment_amount,
+      investment_mode: p.investment_mode,
+      fixed_costs: p.fixed_costs,
+      savings_dates: p.savings_dates,
+    };
+    if (p.id) {
+      await supabase.from("planner").update(payload).eq("id", p.id);
+    } else {
+      const { data } = await supabase.from("planner").insert(payload).select().single();
+      if (data) setPlanner((prev) => ({ ...prev, id: data.id }));
+    }
+  }
+
+  function updatePlanner(updates) {
+    setPlanner((prev) => {
+      const next = { ...prev, ...updates };
+      debounceSave("planner", () => persistPlanner(next));
+      return next;
+    });
+  }
+
+  function addFixedCost() {
+    updatePlanner({ fixed_costs: [...planner.fixed_costs, { id: Date.now().toString(), name: "", amount: 0 }] });
+  }
+  function updateFixedCost(id, field, value) {
+    updatePlanner({ fixed_costs: planner.fixed_costs.map((c) => c.id === id ? { ...c, [field]: value } : c) });
+  }
+  function removeFixedCost(id) {
+    updatePlanner({ fixed_costs: planner.fixed_costs.filter((c) => c.id !== id) });
+  }
+  function toggleInvestMode(newMode) {
+    if (newMode === planner.investment_mode) return;
+    let newAmount = planner.investment_amount;
+    if (newMode === "pct" && planner.monthly_income > 0)
+      newAmount = parseFloat(((planner.investment_amount / planner.monthly_income) * 100).toFixed(1));
+    else if (newMode === "amount" && planner.monthly_income > 0)
+      newAmount = parseFloat(((planner.investment_amount / 100) * planner.monthly_income).toFixed(0));
+    updatePlanner({ investment_mode: newMode, investment_amount: newAmount });
+  }
+
   // ── Chart datasets ─────────────────────────────────────────────────────────
 
   const activeCats = budgets.filter((b) => bycat[b.name] > 0 && b.name !== "Transfers");
@@ -650,6 +757,26 @@ export default function App() {
     { label: "Balance", data: savings.map((v) => v.balance), backgroundColor: "#2a78d6cc", borderRadius: 4, borderSkipped: false },
     { label: "Target", data: savings.map((v) => v.target), backgroundColor: "#2a78d622", borderRadius: 4, borderSkipped: false },
   ];
+
+  // ── Planner derived ────────────────────────────────────────────────────────
+
+  const investEur = planner.investment_mode === "pct"
+    ? (planner.monthly_income * planner.investment_amount) / 100
+    : planner.investment_amount;
+  const fixedTotal = planner.fixed_costs.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const savingsContribTotal = savings.reduce((sum, v) => {
+    const needed = Math.max(0, v.target - v.balance);
+    const months = monthsUntil(planner.savings_dates[v.id]);
+    return sum + (months && needed > 0 ? needed / months : 0);
+  }, 0);
+  const plannerAvailable = planner.monthly_income - fixedTotal - savingsContribTotal - investEur;
+  const weeklyBudgetMonthly = budgets.filter((b) => b.name !== "Transfers").reduce((s, b) => s + b.weekly, 0) * 4;
+  const plannerChartData = [fixedTotal, savingsContribTotal, investEur, Math.max(0, plannerAvailable)].map((v) => parseFloat(v.toFixed(2)));
+  const plannerChartLabels = ["Fixed costs", "Savings", "Investments", "Spending"];
+  const plannerChartColors = ["#e34948", "#2a78d6", "#0f6e56", "#1baf7a"];
+  const plannerChartFiltered = plannerChartLabels
+    .map((l, i) => ({ l, v: plannerChartData[i], c: plannerChartColors[i] }))
+    .filter((x) => x.v > 0);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -671,7 +798,7 @@ export default function App() {
         <div className="header-inner">
           <span className="logo">💶 Budget</span>
           <nav className="tabs">
-            {["dashboard","budget","import","savings","settings"].map((t) => (
+            {["dashboard","budget","import","savings","planner","settings"].map((t) => (
               <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -920,6 +1047,176 @@ export default function App() {
                 <BarChart labels={savings.map((v) => v.name)} datasets={savingsDatasets} />
               </div>
             </div>
+          </>
+        )}
+
+        {/* PLANNER */}
+        {tab === "planner" && (
+          <>
+            {/* Monthly income */}
+            <div className="card">
+              <div className="card-title">Monthly take-home pay</div>
+              <div className="planner-income-row">
+                <span className="planner-currency">€</span>
+                <input
+                  type="number" min="0" step="100" placeholder="0"
+                  className="planner-income-input"
+                  value={planner.monthly_income || ""}
+                  onChange={(e) => updatePlanner({ monthly_income: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            {/* Fixed costs */}
+            <div className="card">
+              <div className="card-title">Fixed costs</div>
+              {planner.fixed_costs.map((cost) => (
+                <div key={cost.id} className="planner-row">
+                  <input
+                    className="planner-name-input"
+                    placeholder="e.g. Rent"
+                    value={cost.name}
+                    onChange={(e) => updateFixedCost(cost.id, "name", e.target.value)}
+                  />
+                  <div className="planner-amount-wrap">
+                    <span className="planner-currency">€</span>
+                    <input
+                      type="number" min="0" step="10" placeholder="0"
+                      className="planner-amount-input"
+                      value={cost.amount || ""}
+                      onChange={(e) => updateFixedCost(cost.id, "amount", parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <button className="remove-btn" onClick={() => removeFixedCost(cost.id)}>✕</button>
+                </div>
+              ))}
+              <button className="add-btn" onClick={addFixedCost}>+ Add fixed cost</button>
+              {planner.fixed_costs.length > 0 && (
+                <div className="planner-subtotal">Fixed total: <strong>€{fixedTotal.toFixed(0)}</strong> / mo</div>
+              )}
+            </div>
+
+            {/* Savings contributions */}
+            <div className="card">
+              <div className="card-title">Savings contributions</div>
+              {savings.length === 0 ? (
+                <EmptyState emoji="🏦" headline="No vaults yet" sub="Add savings vaults in the Savings tab to plan contributions here" />
+              ) : savings.map((v) => {
+                const needed = Math.max(0, v.target - v.balance);
+                const months = monthsUntil(planner.savings_dates[v.id]);
+                const monthly = months && needed > 0 ? needed / months : 0;
+                const pctDone = Math.min(100, v.target > 0 ? (v.balance / v.target) * 100 : 0);
+                return (
+                  <div key={v.id} className="planner-savings-row">
+                    <div className="planner-savings-info">
+                      <div className="planner-savings-name">{v.name}</div>
+                      <div className="planner-savings-meta">
+                        €{v.balance.toLocaleString()} of €{v.target.toLocaleString()} ({pctDone.toFixed(0)}%)
+                      </div>
+                    </div>
+                    <div className="planner-savings-controls">
+                      <input
+                        type="month"
+                        className="planner-month-input"
+                        value={planner.savings_dates[v.id] || ""}
+                        onChange={(e) => updatePlanner({
+                          savings_dates: { ...planner.savings_dates, [v.id]: e.target.value }
+                        })}
+                      />
+                      <div className={`planner-contrib${monthly > 0 ? " active" : ""}`}>
+                        {needed <= 0 ? "✓ Met" : monthly > 0 ? `€${monthly.toFixed(0)}/mo` : "—"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {savings.length > 0 && savingsContribTotal > 0 && (
+                <div className="planner-subtotal">Savings total: <strong>€{savingsContribTotal.toFixed(0)}</strong> / mo</div>
+              )}
+            </div>
+
+            {/* Investments */}
+            <div className="card">
+              <div className="card-title">Investments</div>
+              <div className="planner-row">
+                <div className="planner-mode-toggle">
+                  <button className={planner.investment_mode === "amount" ? "active" : ""} onClick={() => toggleInvestMode("amount")}>€</button>
+                  <button className={planner.investment_mode === "pct" ? "active" : ""} onClick={() => toggleInvestMode("pct")}>%</button>
+                </div>
+                <div className="planner-amount-wrap">
+                  <span className="planner-currency">{planner.investment_mode === "pct" ? "%" : "€"}</span>
+                  <input
+                    type="number" min="0" step={planner.investment_mode === "pct" ? "1" : "50"} placeholder="0"
+                    className="planner-amount-input"
+                    value={planner.investment_amount || ""}
+                    onChange={(e) => updatePlanner({ investment_amount: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                {planner.investment_amount > 0 && planner.monthly_income > 0 && (
+                  <div className="planner-derived">
+                    {planner.investment_mode === "pct"
+                      ? `= €${investEur.toFixed(0)} / mo`
+                      : `= ${((investEur / planner.monthly_income) * 100).toFixed(1)}% of income`}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Spending budget summary */}
+            <div className="card">
+              <div className="card-title">Spending budget</div>
+              <div className="planner-summary">
+                <div className="planner-summary-row">
+                  <span>Monthly income</span>
+                  <span className="planner-summary-val">€{planner.monthly_income.toFixed(0)}</span>
+                </div>
+                <div className="planner-summary-row">
+                  <span>Fixed costs</span>
+                  <span className="planner-summary-deduct">− €{fixedTotal.toFixed(0)}</span>
+                </div>
+                <div className="planner-summary-row">
+                  <span>Savings contributions</span>
+                  <span className="planner-summary-deduct">− €{savingsContribTotal.toFixed(0)}</span>
+                </div>
+                <div className="planner-summary-row">
+                  <span>Investments</span>
+                  <span className="planner-summary-deduct">− €{investEur.toFixed(0)}</span>
+                </div>
+                <div className="planner-summary-divider" />
+                <div className="planner-summary-row planner-summary-result">
+                  <span>Available for spending</span>
+                  <strong className={plannerAvailable < 0 ? "over" : ""}>
+                    {plannerAvailable < 0 ? "-" : ""}€{Math.abs(plannerAvailable).toFixed(0)}
+                  </strong>
+                </div>
+                <div className="planner-summary-row planner-summary-compare">
+                  <span>Weekly budgets × 4</span>
+                  <span>€{weeklyBudgetMonthly.toFixed(0)}</span>
+                </div>
+                {planner.monthly_income > 0 && (
+                  <div className={`planner-compare-banner ${plannerAvailable >= weeklyBudgetMonthly ? "ok" : "warn"}`}>
+                    {plannerAvailable >= weeklyBudgetMonthly
+                      ? `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} buffer above your weekly budgets`
+                      : `€${(weeklyBudgetMonthly - plannerAvailable).toFixed(0)} short of your weekly budgets`}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Doughnut chart */}
+            {planner.monthly_income > 0 && plannerChartFiltered.length > 0 && (
+              <div className="card">
+                <div className="card-title">Breakdown</div>
+                <div className="chart-wrap" style={{ height: 300 }}>
+                  <DoughnutChart
+                    labels={plannerChartFiltered.map((x) => x.l)}
+                    data={plannerChartFiltered.map((x) => x.v)}
+                    colors={plannerChartFiltered.map((x) => x.c)}
+                    textColor={darkMode ? "#a0a0a0" : "#52514e"}
+                  />
+                </div>
+              </div>
+            )}
           </>
         )}
 
