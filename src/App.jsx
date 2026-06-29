@@ -270,6 +270,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
   const [weekOffset, setWeekOffset] = useState(0);
   const [viewMode, setViewMode] = useState("weekly");
   const [transactions, setTransactions] = useState([]);
@@ -279,6 +280,23 @@ export default function App() {
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
   const saveTimers = useRef({});
+
+  function toggleDark() {
+    setDarkMode((d) => {
+      const next = !d;
+      localStorage.setItem("darkMode", next);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    document.body.style.background = darkMode ? "#0f0f0f" : "";
+  }, [darkMode]);
+
+  useEffect(() => {
+    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", settings: "Settings" };
+    document.title = `${names[tab] ?? tab} — Budget Tracker`;
+  }, [tab]);
 
   function debounceSave(key, fn, delay = 600) {
     clearTimeout(saveTimers.current[key]);
@@ -550,7 +568,7 @@ export default function App() {
   const txnRowProps = { pendingRule, onRecategorise: recategorise, onSaveRule: saveRule, onDismissRule: () => setPendingRule(null) };
 
   return (
-    <div className="app">
+    <div className={`app${darkMode ? " dark" : ""}`}>
       <header className="header">
         <div className="header-inner">
           <span className="logo">💶 Budget</span>
@@ -561,7 +579,12 @@ export default function App() {
               </button>
             ))}
           </nav>
-          <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
+          <div className="header-actions">
+            <button className="icon-btn" onClick={toggleDark} title={darkMode ? "Light mode" : "Dark mode"}>
+              {darkMode ? "☀️" : "🌙"}
+            </button>
+            <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
+          </div>
         </div>
       </header>
 
@@ -712,7 +735,7 @@ export default function App() {
           <div className="card">
             <div className="card-title">Weekly budget limits</div>
             {budgets.map((b, i) => (
-              <div className="budget-row" key={b.name}>
+              <div className="budget-row budget-edit-row" key={b.name}>
                 <div className="budget-label">{b.icon} {b.name}</div>
                 <div />
                 <div className="budget-limit-label">weekly €</div>

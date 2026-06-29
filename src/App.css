@@ -345,9 +345,33 @@ body {
 .auth-btn-secondary:not(:disabled):hover { background: #f4f3ef; color: #0b0b0b; }
 .auth-btn-secondary:disabled { opacity: 0.55; cursor: default; }
 
+/* Header actions (dark toggle + logout) */
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  background: none;
+  border: 0.5px solid #d3d1c7;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: border-color 0.15s, background 0.15s;
+}
+.icon-btn:hover { background: #f4f3ef; border-color: #888780; }
+
 /* Logout button */
 .logout-btn {
-  margin-left: auto;
   padding: 5px 12px;
   font-size: 13px;
   background: none;
@@ -377,6 +401,75 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Tab fade-in */
+@keyframes tab-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.main > * { animation: tab-fade-in 150ms ease-out both; }
+
+/* Dark mode */
+.dark { background: #0f0f0f; color: #ffffff; }
+.dark .header { background: #1a1a1a; border-bottom-color: #2a2a2a; }
+.dark .logo { color: #ffffff; }
+.dark .tab { color: #a0a0a0; }
+.dark .tab:hover { color: #ffffff; background: #2a2a2a; }
+.dark .tab.active { color: #ffffff; background: #2a2a2a; }
+.dark .icon-btn { border-color: #2a2a2a; color: #a0a0a0; }
+.dark .icon-btn:hover { background: #2a2a2a; border-color: #444; }
+.dark .logout-btn { color: #a0a0a0; border-color: #2a2a2a; }
+.dark .logout-btn:hover { color: #e24b4a; border-color: #f5b8b8; }
+.dark .main { background: #0f0f0f; }
+.dark .card { background: #1a1a1a; border-color: #2a2a2a; }
+.dark .card-title { color: #ffffff; }
+.dark .metric { background: #1a1a1a; border-color: #2a2a2a; }
+.dark .metric-label { color: #666666; }
+.dark .metric-value { color: #ffffff; }
+.dark .metric-sub { color: #666666; }
+.dark .nav-btn { background: #1a1a1a; border-color: #2a2a2a; color: #a0a0a0; }
+.dark .nav-btn:hover { background: #2a2a2a; }
+.dark .week-label { color: #ffffff; }
+.dark .view-toggle { background: #1a1a1a; border-color: #2a2a2a; }
+.dark .view-toggle button { color: #a0a0a0; }
+.dark .view-toggle button.active { background: #2a2a2a; color: #ffffff; box-shadow: none; }
+.dark .budget-label { color: #ffffff; }
+.dark .progress-wrap { background: #2a2a2a; }
+.dark .budget-spent { color: #ffffff; }
+.dark .budget-limit { color: #666666; }
+.dark .budget-limit-label { color: #666666; }
+.dark .budget-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
+.dark .budget-input:focus { border-color: #2a78d6; }
+.dark .txn-row { border-bottom-color: #2a2a2a; }
+.dark .txn-desc { color: #ffffff; }
+.dark .txn-date { color: #666666; }
+.dark .txn-amount.out { color: #ffffff; }
+.dark .txn-amount.in { color: #5a9e2f; }
+.dark .cat-select { background: #222222; border-color: #2a2a2a; color: #a0a0a0; }
+.dark .upload-zone { border-color: #2a2a2a; }
+.dark .upload-zone:hover { border-color: #444; background: #1a1a1a; }
+.dark .upload-zone p { color: #a0a0a0; }
+.dark .upload-zone small { color: #666666; }
+.dark .savings-name { color: #ffffff; }
+.dark .savings-target { color: #666666; }
+.dark .savings-prefix { color: #666666; }
+.dark .savings-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
+.dark .savings-input:focus { border-color: #2a78d6; }
+.dark .savings-row { border-bottom-color: #2a2a2a; }
+.dark .add-btn { border-color: #2a2a2a; color: #666666; }
+.dark .add-btn:hover { color: #a0a0a0; border-color: #444; }
+.dark .remove-btn { color: #444; }
+.dark .remove-btn:hover { color: #e24b4a; }
+.dark .empty-state { color: #666666; }
+.dark .over-budget-banner { background: #2d1414; border-color: #5a2020; }
+.dark .spinner-wrap { background: #0f0f0f; }
+.dark .spinner { border-color: #2a2a2a; border-top-color: #2a78d6; }
+.dark .auth-wrap { background: #0f0f0f; }
+.dark .auth-card { background: #1a1a1a; border-color: #2a2a2a; }
+.dark .auth-logo { color: #ffffff; }
+.dark .auth-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
+.dark .auth-input:focus { border-color: #2a78d6; }
+.dark .auth-btn-secondary { color: #a0a0a0; border-color: #2a2a2a; }
+.dark .auth-btn-secondary:not(:disabled):hover { background: #2a2a2a; color: #ffffff; }
+.dark .account-chip.muted { border-color: #2a2a2a; color: #666666; }
+.dark .tabs { border-top-color: #2a2a2a; }
+
 @media (max-width: 600px) {
   /* ── Header: row 1 = logo + logout, row 2 = scrollable tabs ── */
   .header { overflow: hidden; }
@@ -388,9 +481,9 @@ body {
     gap: 0;
     align-items: center;
   }
-  /* Logo and logout share row 1 */
+  /* Logo and header-actions share row 1 */
   .logo { order: 1; flex-shrink: 0; padding: 10px 0; }
-  .logout-btn { order: 2; margin-left: auto; flex-shrink: 0; }
+  .header-actions { order: 2; margin-left: auto; }
   /* Tabs drop to row 2, scrollable, no visible scrollbar */
   .tabs {
     order: 3;
@@ -424,9 +517,19 @@ body {
   /* ── Metric cards: 2×2 grid ── */
   .metric-row { grid-template-columns: 1fr 1fr; gap: 8px; }
 
-  /* ── Category rows: 3-col layout, hide the /€limit to save space ── */
+  /* ── Dashboard category rows: 3-col layout, hide the /€limit ── */
   .budget-row { grid-template-columns: 110px 1fr 56px; gap: 8px; }
   .budget-limit { display: none; }
+
+  /* ── Budget-tab edit rows: flex so all three elements stay on one line ── */
+  .budget-edit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .budget-edit-row .budget-label { flex: 1; min-width: 0; }
+  .budget-edit-row > div:empty { display: none; }
 
   /* ── Tap targets ── */
   .nav-btn { min-height: 44px; padding: 8px 18px; }
