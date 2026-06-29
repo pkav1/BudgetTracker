@@ -168,6 +168,61 @@ function LineChart({ labels, data, yPrefix = "€" }) {
   return <canvas ref={ref} />;
 }
 
+function AuthScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleLogin() {
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    setBusy(false);
+  }
+
+  async function handleSignUp() {
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else setInfo("Account created! Check your email to confirm, then log in.");
+    setBusy(false);
+  }
+
+  function onKey(e) {
+    if (e.key === "Enter") handleLogin();
+  }
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-logo">💶 Budget</div>
+        <input
+          className="auth-input" type="email" placeholder="Email"
+          value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey}
+          autoComplete="email"
+        />
+        <input
+          className="auth-input" type="password" placeholder="Password"
+          value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={onKey}
+          autoComplete="current-password"
+        />
+        {error && <div className="auth-error">{error}</div>}
+        {info && <div className="auth-info">{info}</div>}
+        <div className="auth-actions">
+          <button className="auth-btn-primary" onClick={handleLogin} disabled={busy}>Log in</button>
+          <button className="auth-btn-secondary" onClick={handleSignUp} disabled={busy}>Sign up</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRule }) {
   const cat = CATEGORIES.find((c) => c.name === t.category) || CATEGORIES[CATEGORIES.length - 1];
   return (
@@ -212,6 +267,7 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
 }
 
 export default function App() {
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
   const [weekOffset, setWeekOffset] = useState(0);
@@ -229,31 +285,52 @@ export default function App() {
     saveTimers.current[key] = setTimeout(fn, delay);
   }
 
+  // Auth: check existing session on mount and listen for changes
   useEffect(() => {
-    async function load() {
-      try {
-        const [{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }] = await Promise.all([
-          supabase.from("budgets").select("*"),
-          supabase.from("transactions").select("*").order("date", { ascending: false }),
-          supabase.from("savings").select("*"),
-          supabase.from("merchant_rules").select("*").order("merchant"),
-        ]);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) setLoading(false);
+    });
 
-        if (dbBudgets?.length) {
-          setBudgets(CATEGORIES.map((c) => {
-            const db = dbBudgets.find((b) => b.name === c.name);
-            return db ? { ...c, weekly: db.weekly } : c;
-          }));
-        }
-        if (dbTxns?.length) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
-        if (dbSavings?.length) setSavings(dbSavings);
-        if (dbRules?.length) setMerchantRules(dbRules);
-      } finally {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      if (event === "SIGNED_OUT") {
+        setTransactions([]);
+        setBudgets(CATEGORIES.map((c) => ({ ...c })));
+        setSavings([]);
+        setMerchantRules([]);
         setLoading(false);
       }
-    }
-    load();
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  // Data: reload whenever the logged-in user changes
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+    setLoading(true);
+    Promise.all([
+      supabase.from("budgets").select("*").eq("user_id", uid),
+      supabase.from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false }),
+      supabase.from("savings").select("*").eq("user_id", uid),
+      supabase.from("merchant_rules").select("*").eq("user_id", uid).order("merchant"),
+    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }]) => {
+      if (dbBudgets?.length) {
+        setBudgets(CATEGORIES.map((c) => {
+          const db = dbBudgets.find((b) => b.name === c.name);
+          return db ? { ...c, weekly: db.weekly } : c;
+        }));
+      }
+      if (dbTxns?.length) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
+      if (dbSavings?.length) setSavings(dbSavings);
+      if (dbRules?.length) setMerchantRules(dbRules);
+      setLoading(false);
+    });
+  }, [session?.user?.id]);
+
+  // ── Derived state ─────────────────────────────────────────────────────────
 
   const { start, end } = getWeekRange(weekOffset);
   const weekTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.amount < 0);
@@ -313,16 +390,31 @@ export default function App() {
     borderSkipped: false,
   }];
 
-  // Over budget categories (used in weekly view banner)
+  // Over budget categories (weekly view only)
   const overBudgetCats = budgets.filter((b) =>
     b.name !== "Transfers" && b.weekly > 0 && (bycat[b.name] || 0) > b.weekly
   );
+
+  // ── Data functions ─────────────────────────────────────────────────────────
 
   function handleCSV(e) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (ev) => {
+      // Re-read the session inside the async callback so we never use a stale closure value,
+      // then explicitly set it so the client attaches the JWT to every subsequent request.
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.user?.id) {
+        setImportMsg({ ok: false, text: "Session expired — please log out and log back in, then try again." });
+        return;
+      }
+      await supabase.auth.setSession({
+        access_token: currentSession.access_token,
+        refresh_token: currentSession.refresh_token,
+      });
+      const uid = currentSession.user.id;
+
       const parsed = parseRevolutCSV(ev.target.result);
       if (!parsed) {
         setImportMsg({ ok: false, text: "Could not read this file. Make sure it's a Revolut CSV export." });
@@ -330,7 +422,7 @@ export default function App() {
       }
 
       // Fetch fresh rules so this import benefits from any rules added during the session
-      const { data: freshRules } = await supabase.from("merchant_rules").select("*");
+      const { data: freshRules } = await supabase.from("merchant_rules").select("*").eq("user_id", uid);
       const rules = freshRules ?? merchantRules;
 
       // Apply merchant rules to non-transfer rows before falling back to keyword defaults
@@ -344,7 +436,8 @@ export default function App() {
       // Fetch existing categories so re-imports don't overwrite manual recategorisations,
       // while still updating the balance column for rows that already exist.
       const ids = parsedWithRules.map((t) => t.id);
-      const { data: existing } = await supabase.from("transactions").select("id, category").in("id", ids);
+      const { data: existing } = await supabase
+        .from("transactions").select("id, category").in("id", ids).eq("user_id", uid);
       const savedCats = Object.fromEntries((existing || []).map((t) => [t.id, t.category]));
 
       const rows = parsedWithRules.map((t) => ({
@@ -355,11 +448,19 @@ export default function App() {
         category: savedCats[t.id] ?? t.category,
         account: t.account,
         balance: t.balance ?? null,
+        user_id: uid,
       }));
 
-      await supabase.from("transactions").upsert(rows, { onConflict: "id" });
+      console.log("transactions upsert payload — first row:", rows[0], "| total rows:", rows.length, "| all have user_id:", rows.every((r) => !!r.user_id));
+      const { error: upsertError } = await supabase.from("transactions").upsert(rows, { onConflict: "id" });
+      if (upsertError) {
+        console.error("transactions upsert error:", upsertError);
+        setImportMsg({ ok: false, text: `Import failed: ${upsertError.message}` });
+        return;
+      }
 
-      const { data: dbTxns } = await supabase.from("transactions").select("*").order("date", { ascending: false });
+      const { data: dbTxns } = await supabase
+        .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
       if (dbTxns) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
 
       setImportMsg({ ok: true, text: `${parsed.length} transactions imported from ${file.name}.` });
@@ -368,8 +469,9 @@ export default function App() {
   }
 
   async function recategorise(id, cat) {
+    const uid = session.user.id;
     setTransactions((prev) => prev.map((t) => t.id === id ? { ...t, category: cat } : t));
-    await supabase.from("transactions").update({ category: cat }).eq("id", id);
+    await supabase.from("transactions").update({ category: cat }).eq("id", id).eq("user_id", uid);
     const txn = transactions.find((t) => t.id === id);
     const merchant = txn ? extractMerchant(txn.description) : "";
     if (merchant) setPendingRule({ txnId: id, merchant, category: cat });
@@ -377,10 +479,11 @@ export default function App() {
 
   async function saveRule() {
     if (!pendingRule) return;
+    const uid = session.user.id;
     const { merchant, category } = pendingRule;
     const { data } = await supabase
       .from("merchant_rules")
-      .upsert({ merchant, category }, { onConflict: "merchant" })
+      .upsert({ merchant, category, user_id: uid }, { onConflict: "merchant,user_id" })
       .select()
       .single();
     if (data) {
@@ -390,7 +493,7 @@ export default function App() {
       });
     }
     // Retroactively apply the new category to every transaction whose description matches
-    await supabase.from("transactions").update({ category }).ilike("description", `%${merchant}%`);
+    await supabase.from("transactions").update({ category }).eq("user_id", uid).ilike("description", `%${merchant}%`);
     setTransactions((prev) => prev.map((t) =>
       t.description.toLowerCase().includes(merchant) ? { ...t, category } : t
     ));
@@ -398,22 +501,28 @@ export default function App() {
   }
 
   async function addVault() {
+    const uid = session.user.id;
     const name = prompt("Vault name:");
     if (!name) return;
     const target = parseFloat(prompt("Target amount (€):")) || 1000;
-    const { data } = await supabase.from("savings").insert({ name, balance: 0, target }).select().single();
+    const { data } = await supabase
+      .from("savings").insert({ name, balance: 0, target, user_id: uid }).select().single();
     if (data) setSavings((prev) => [...prev, data]);
   }
 
   async function removeVault(id) {
-    await supabase.from("savings").delete().eq("id", id);
+    const uid = session.user.id;
+    await supabase.from("savings").delete().eq("id", id).eq("user_id", uid);
     setSavings((prev) => prev.filter((s) => s.id !== id));
   }
 
   async function deleteMerchantRule(id) {
-    await supabase.from("merchant_rules").delete().eq("id", id);
+    const uid = session.user.id;
+    await supabase.from("merchant_rules").delete().eq("id", id).eq("user_id", uid);
     setMerchantRules((prev) => prev.filter((r) => r.id !== id));
   }
+
+  // ── Chart datasets ─────────────────────────────────────────────────────────
 
   const activeCats = budgets.filter((b) => bycat[b.name] > 0 && b.name !== "Transfers");
   const dashDatasets = activeCats.length ? [
@@ -426,6 +535,8 @@ export default function App() {
     { label: "Target", data: savings.map((v) => v.target), backgroundColor: "#2a78d622", borderRadius: 4, borderSkipped: false },
   ];
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="spinner-wrap">
@@ -433,6 +544,8 @@ export default function App() {
       </div>
     );
   }
+
+  if (!session) return <AuthScreen />;
 
   const txnRowProps = { pendingRule, onRecategorise: recategorise, onSaveRule: saveRule, onDismissRule: () => setPendingRule(null) };
 
@@ -448,6 +561,7 @@ export default function App() {
               </button>
             ))}
           </nav>
+          <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
         </div>
       </header>
 
@@ -606,11 +720,12 @@ export default function App() {
                   type="number" min="0" step="5" value={b.weekly}
                   className="budget-input"
                   onChange={(e) => {
+                    const uid = session.user.id;
                     const val = parseFloat(e.target.value) || 0;
                     const { name, color, icon } = b;
                     setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, weekly: val } : p));
                     debounceSave(`budget-${name}`, () => {
-                      supabase.from("budgets").upsert({ name, weekly: val, color, icon }, { onConflict: "name" });
+                      supabase.from("budgets").upsert({ name, weekly: val, color, icon, user_id: uid }, { onConflict: "name,user_id" });
                     });
                   }}
                 />
@@ -661,10 +776,11 @@ export default function App() {
                         type="number" min="0" step="50" value={v.balance}
                         className="savings-input"
                         onChange={(e) => {
+                          const uid = session.user.id;
                           const val = parseFloat(e.target.value) || 0;
                           setSavings((prev) => prev.map((s) => s.id === v.id ? { ...s, balance: val } : s));
                           debounceSave(`savings-${v.id}`, () => {
-                            supabase.from("savings").update({ balance: val }).eq("id", v.id);
+                            supabase.from("savings").update({ balance: val }).eq("id", v.id).eq("user_id", uid);
                           });
                         }}
                       />
