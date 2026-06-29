@@ -13,7 +13,9 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const { endpoint } = req.query;
+  // Use the WHATWG URL API to parse query params — avoids the deprecated url.parse() (DEP0169)
+  // req.url is a relative path, so supply a throwaway base to satisfy the constructor.
+  const endpoint = new URL(req.url, "https://x").searchParams.get("endpoint");
   if (!endpoint) return res.status(400).json({ error: "Missing ?endpoint= parameter" });
 
   const apiKey = process.env.TRADING212_API_KEY;
