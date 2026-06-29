@@ -219,6 +219,61 @@ body {
   font-size: 14px; color: #898781;
 }
 
+.view-toggle {
+  display: flex;
+  background: #f4f3ef;
+  border: 0.5px solid #e1e0d9;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+  margin-bottom: 1.25rem;
+  width: fit-content;
+}
+.view-toggle button {
+  padding: 5px 18px;
+  font-size: 13px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #898781;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.view-toggle button.active {
+  background: #fff;
+  color: #0b0b0b;
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.over-budget-banner {
+  background: #fcebeb;
+  color: #a32d2d;
+  border: 0.5px solid #f5b8b8;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.spinner-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e1e0d9;
+  border-top-color: #2a78d6;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 600px) {
   .budget-row { grid-template-columns: 120px 1fr 48px 48px; gap: 6px; }
   .metric-row { grid-template-columns: 1fr 1fr; }
