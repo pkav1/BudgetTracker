@@ -1,7 +1,6 @@
 // Vercel serverless proxy for Trading 212 API.
 // Env vars required (set in Vercel dashboard):
 //   TRADING212_API_KEY    — your Trading 212 API key
-//   TRADING212_API_SECRET — reserved for future signed-request flows (not used yet)
 //
 // Usage (frontend): fetch('/api/trading212?endpoint=equity/portfolio')
 
@@ -13,29 +12,45 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  // Use the WHATWG URL API to parse query params — avoids the deprecated url.parse() (DEP0169)
-  // req.url is a relative path, so supply a throwaway base to satisfy the constructor.
-  const endpoint = new URL(req.url, "https://x").searchParams.get("endpoint");
-  if (!endpoint) return res.status(400).json({ error: "Missing ?endpoint= parameter" });
-
-  const apiKey = process.env.TRADING212_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "TRADING212_API_KEY is not configured on this deployment" });
-
-  let upstream;
   try {
-    upstream = await fetch(`https://live.trading212.com/api/v0/${endpoint}`, {
-      headers: { Authorization: apiKey },
-    });
+    const endpoint = new URL(req.url, "https://x").searchParams.get("endpoint");
+    if (!endpoint) return res.status(400).json({ error: "Missing ?endpoint= parameter" });
+
+    const apiKey = process.env.TRADING212_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "TRADING212_API_KEY is not configured on this deployment" });
+
+    let upstream;
+    try {
+      upstream = await fetch(`https://live.trading212.com/api/v0/${endpoint}`, {
+        headers: { Authorization: apiKey },
+      });
+    } catch (err) {
+      return res.status(502).json({ error: "Failed to reach Trading 212", detail: err.message });
+    }
+
+    // Read the raw body text first so we can log it before attempting JSON.parse
+    const rawText = await upstream.text();
+    console.log("[trading212] upstream status:", upstream.status);
+    console.log("[trading212] upstream body (first 200 chars):", rawText.slice(0, 200));
+
+    let body;
+    try {
+      body = JSON.parse(rawText);
+    } catch (err) {
+      return res.status(502).json({
+        error: "Trading 212 returned a non-JSON response",
+        status: upstream.status,
+        preview: rawText.slice(0, 200),
+      });
+    }
+
+    return res.status(upstream.status).json(body);
   } catch (err) {
-    return res.status(502).json({ error: "Failed to reach Trading 212", detail: err.message });
+    console.error("[trading212] unhandled error:", err);
+    return res.status(500).json({
+      error: "Unhandled error in proxy function",
+      message: err.message,
+      stack: err.stack,
+    });
   }
-
-  let body;
-  try {
-    body = await upstream.json();
-  } catch {
-    return res.status(502).json({ error: "Trading 212 returned a non-JSON response" });
-  }
-
-  return res.status(upstream.status).json(body);
 }
