@@ -3,23 +3,47 @@ import { Chart } from "chart.js/auto";
 import "./App.css";
 import { supabase } from "./supabase";
 
+function I(d) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true">{d}</svg>
+  );
+}
+
 const CATEGORIES = [
-  { name: "Groceries", icon: "🛒", color: "#2a78d6", weekly: 80, keywords: ["tesco","supervalu","lidl","aldi","dunnes","spar","centra","co-op"] },
-  { name: "Eating out", icon: "🍽️", color: "#1baf7a", weekly: 40, keywords: ["restaurant","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"] },
-  { name: "Coffee", icon: "☕", color: "#854f0b", weekly: 20, keywords: ["blue bird","ucd nova","gather and gather","poolside cafe","starbucks","insomnia","butlers","paulig","coffeeangel"] },
-  { name: "Takeaway", icon: "🛵", color: "#eda100", weekly: 30, keywords: ["deliveroo","just eat","uber eats","takeaway"] },
-  { name: "Drinks / nights out", icon: "🍺", color: "#4a3aa7", weekly: 40, keywords: ["pub","bar","nightclub","off licence","o'briens"] },
-  { name: "Transport", icon: "🚌", color: "#e34948", weekly: 25, keywords: ["leap","dublin bus","luas","dart","irish rail","taxi","uber","free now","bolt"] },
-  { name: "Petrol", icon: "⛽", color: "#eb6834", weekly: 30, keywords: ["applegreen","circle k","maxol","topaz","texaco","esso","fuel","petrol"] },
-  { name: "Travel", icon: "✈️", color: "#185fa5", weekly: 0, keywords: ["booking.com","hostelworld","airbnb","ryanair","aer lingus","skyscanner","hotels.com","expedia","bus eireann","wexford bus","eurolines"] },
-  { name: "Shopping", icon: "🛍️", color: "#e87ba4", weekly: 50, keywords: ["amazon","penneys","primark","asos"] },
-  { name: "Clothes", icon: "👕", color: "#e87ba4", weekly: 30, keywords: ["penneys","primark","zara","h&m","asos","next","marks","tkmaxx","tk maxx","river island","pull&bear","stradivarius"] },
-  { name: "Subscriptions", icon: "🔄", color: "#52514e", weekly: 15, keywords: ["netflix","spotify","disney","apple","google","microsoft","gym"] },
-  { name: "Utilities", icon: "💡", color: "#639922", weekly: 0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"] },
-  { name: "Health", icon: "❤️", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist"] },
-  { name: "Sport", icon: "⚽", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"] },
-  { name: "Transfers", icon: "↔️", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from"] },
-  { name: "Other", icon: "•••", color: "#898781", weekly: 30, keywords: [] },
+  { name: "Groceries", color: "#2a78d6", weekly: 80, keywords: ["tesco","supervalu","lidl","aldi","dunnes","spar","centra","co-op"],
+    icon: I(<><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></>)},
+  { name: "Eating out", color: "#1baf7a", weekly: 40, keywords: ["restaurant","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"],
+    icon: I(<><path d="M3 2v7a3 3 0 006 0V2"/><line x1="6" y1="11" x2="6" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/></>)},
+  { name: "Coffee", color: "#854f0b", weekly: 20, keywords: ["blue bird","ucd nova","gather and gather","poolside cafe","starbucks","insomnia","butlers","paulig","coffeeangel"],
+    icon: I(<><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/></>)},
+  { name: "Takeaway", color: "#eda100", weekly: 30, keywords: ["deliveroo","just eat","uber eats","takeaway"],
+    icon: I(<><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>)},
+  { name: "Drinks / nights out", color: "#4a3aa7", weekly: 40, keywords: ["pub","bar","nightclub","off licence","o'briens"],
+    icon: I(<><path d="M8 22h8"/><line x1="12" y1="11" x2="12" y2="22"/><path d="M6 2h12l-2 7a4 4 0 01-8 0L6 2z"/></>)},
+  { name: "Transport", color: "#e34948", weekly: 25, keywords: ["leap","dublin bus","luas","dart","irish rail","taxi","uber","free now","bolt"],
+    icon: I(<><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 5V2"/><path d="M17 5V2"/><circle cx="7" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="16" r="1" fill="currentColor" stroke="none"/></>)},
+  { name: "Petrol", color: "#eb6834", weekly: 30, keywords: ["applegreen","circle k","maxol","topaz","texaco","esso","fuel","petrol"],
+    icon: I(<><path d="M3 22V7a2 2 0 012-2h8a2 2 0 012 2v15"/><line x1="3" y1="22" x2="15" y2="22"/><rect x="5" y="9" width="6" height="4" rx="1"/><path d="M15 6h2a2 2 0 012 2v3a2 2 0 002 2"/></>)},
+  { name: "Travel", color: "#185fa5", weekly: 0, keywords: ["booking.com","hostelworld","airbnb","ryanair","aer lingus","skyscanner","hotels.com","expedia","bus eireann","wexford bus","eurolines"],
+    icon: I(<><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0011.5 2h0A1.5 1.5 0 0010 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></>)},
+  { name: "Shopping", color: "#e87ba4", weekly: 50, keywords: ["amazon","penneys","primark","asos"],
+    icon: I(<><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></>)},
+  { name: "Clothes", color: "#e87ba4", weekly: 30, keywords: ["penneys","primark","zara","h&m","asos","next","marks","tkmaxx","tk maxx","river island","pull&bear","stradivarius"],
+    icon: I(<><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></>)},
+  { name: "Subscriptions", color: "#52514e", weekly: 15, keywords: ["netflix","spotify","disney","apple","google","microsoft","gym"],
+    icon: I(<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>)},
+  { name: "Utilities", color: "#639922", weekly: 0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"],
+    icon: I(<><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>)},
+  { name: "Health", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist"],
+    icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
+  { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
+    icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
+  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from"],
+    icon: I(<><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></>)},
+  { name: "Other", color: "#898781", weekly: 30, keywords: [],
+    icon: I(<><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></>)},
 ];
 
 const ACCOUNTS = [
@@ -263,6 +287,54 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
         </div>
       )}
     </Fragment>
+  );
+}
+
+function EmptyState({ emoji = "📭", headline, sub }) {
+  return (
+    <div className="empty-illustration">
+      <div className="empty-emoji">{emoji}</div>
+      <div className="empty-headline">{headline}</div>
+      {sub && <div className="empty-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <main className="main">
+      <div className="metric-row">
+        {[0, 1, 2, 3].map((i) => (
+          <div className="metric" key={i}>
+            <div className="skel" style={{ height: 11, width: "55%", marginBottom: 10 }} />
+            <div className="skel" style={{ height: 24, width: "75%" }} />
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="skel" style={{ height: 14, width: 150, marginBottom: 18 }} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <div className="skel" style={{ height: 13, width: 100 }} />
+            <div className="skel" style={{ flex: 1, height: 5 }} />
+            <div className="skel" style={{ height: 13, width: 36 }} />
+          </div>
+        ))}
+      </div>
+      <div className="card">
+        <div className="skel" style={{ height: 14, width: 170, marginBottom: 18 }} />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "0.5px solid #f1efe8" }}>
+            <div className="skel" style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div className="skel" style={{ height: 13, width: "60%", marginBottom: 5 }} />
+              <div className="skel" style={{ height: 11, width: "35%" }} />
+            </div>
+            <div className="skel" style={{ height: 13, width: 50 }} />
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
 
@@ -555,7 +627,7 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading && !session) {
     return (
       <div className="spinner-wrap">
         <div className="spinner" />
@@ -588,6 +660,7 @@ export default function App() {
         </div>
       </header>
 
+      {loading ? <DashboardSkeleton /> : (
       <main className="main">
         {/* DASHBOARD */}
         {tab === "dashboard" && (
@@ -633,7 +706,7 @@ export default function App() {
                     const color = pct > 100 ? "#e24b4a" : pct > 80 ? "#ba7517" : b.color;
                     return (
                       <div className="budget-row" key={b.name}>
-                        <div className="budget-label">{b.icon} {b.name}</div>
+                        <div className="budget-label">{b.icon}<span>{b.name}</span></div>
                         <div className="progress-wrap"><div className="progress-bar" style={{ width: pct + "%", background: color }} /></div>
                         <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
                         <div className="budget-limit">/ €{b.weekly}</div>
@@ -649,7 +722,7 @@ export default function App() {
                 <div className="card">
                   <div className="card-title">Recent transactions</div>
                   {weekTxns.length === 0 ? (
-                    <div className="empty-state">No transactions yet — import a Revolut CSV to get started.</div>
+                    <EmptyState headline="Nothing here yet" sub="Import a Revolut CSV to see your spending" />
                   ) : (
                     <>
                       {weekSpendTxns.map((t) => (
@@ -690,12 +763,12 @@ export default function App() {
                 <div className="card">
                   <div className="card-title">Spending breakdown — {monthLabel}</div>
                   {monthCatsSorted.length === 0 ? (
-                    <div className="empty-state">No spending recorded for {monthLabel}.</div>
+                    <EmptyState headline="Nothing here yet" sub={`No spending recorded for ${monthLabel}`} />
                   ) : monthCatsSorted.map((c) => {
                     const pct = totalMonthSpent > 0 ? (c.spent / totalMonthSpent) * 100 : 0;
                     return (
                       <div className="budget-row" key={c.name}>
-                        <div className="budget-label">{c.icon} {c.name}</div>
+                        <div className="budget-label">{c.icon}<span>{c.name}</span></div>
                         <div className="progress-wrap"><div className="progress-bar" style={{ width: pct + "%", background: c.color }} /></div>
                         <div className="budget-spent" style={{ color: c.color }}>{`€${c.spent.toFixed(0)}`}</div>
                         <div className="budget-limit">{pct.toFixed(0)}%</div>
@@ -736,7 +809,7 @@ export default function App() {
             <div className="card-title">Weekly budget limits</div>
             {budgets.map((b, i) => (
               <div className="budget-row budget-edit-row" key={b.name}>
-                <div className="budget-label">{b.icon} {b.name}</div>
+                <div className="budget-label">{b.icon}<span>{b.name}</span></div>
                 <div />
                 <div className="budget-limit-label">weekly €</div>
                 <input
@@ -745,10 +818,10 @@ export default function App() {
                   onChange={(e) => {
                     const uid = session.user.id;
                     const val = parseFloat(e.target.value) || 0;
-                    const { name, color, icon } = b;
+                    const { name, color } = b;
                     setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, weekly: val } : p));
                     debounceSave(`budget-${name}`, () => {
-                      supabase.from("budgets").upsert({ name, weekly: val, color, icon, user_id: uid }, { onConflict: "name,user_id" });
+                      supabase.from("budgets").upsert({ name, weekly: val, color, user_id: uid }, { onConflict: "name,user_id" });
                     });
                   }}
                 />
@@ -785,6 +858,9 @@ export default function App() {
           <>
             <div className="card">
               <div className="card-title">Vaults & savings</div>
+              {savings.length === 0 && (
+                <EmptyState emoji="📭" headline="Nothing here yet" sub="Add a vault below to start tracking your savings" />
+              )}
               {savings.map((v) => {
                 const pct = Math.min(100, (v.balance / v.target) * 100);
                 return (
@@ -842,6 +918,7 @@ export default function App() {
           </div>
         )}
       </main>
+      )}
     </div>
   );
 }

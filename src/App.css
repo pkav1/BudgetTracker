@@ -102,7 +102,9 @@ body {
   gap: 10px;
   margin-bottom: 10px;
 }
-.budget-label { font-size: 13px; color: #0b0b0b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.budget-label { font-size: 13px; color: #0b0b0b; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.budget-label svg { flex-shrink: 0; }
+.budget-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .progress-wrap { background: #f4f3ef; border-radius: 4px; height: 5px; overflow: hidden; }
 .progress-bar { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .budget-spent { font-size: 13px; text-align: right; }
@@ -218,6 +220,32 @@ body {
   text-align: center; padding: 2rem 1rem;
   font-size: 14px; color: #898781;
 }
+
+/* Empty state illustrations */
+.empty-illustration {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+.empty-emoji { font-size: 40px; line-height: 1; margin-bottom: 12px; }
+.empty-headline { font-size: 15px; font-weight: 500; color: #52514e; margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: #898781; }
+.dark .empty-headline { color: #a0a0a0; }
+.dark .empty-sub { color: #666666; }
+
+/* Loading skeleton */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.skel {
+  background: #e1e0d9;
+  border-radius: 4px;
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+.dark .skel { background: #2a2a2a; }
+
+/* Category icon alignment */
+.txn-icon svg { display: block; }
 
 .view-toggle {
   display: flex;
