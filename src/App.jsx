@@ -349,6 +349,7 @@ export default function App() {
   const [budgets, setBudgets] = useState(CATEGORIES.map((c) => ({ ...c })));
   const [savings, setSavings] = useState([]);
   const [importMsg, setImportMsg] = useState(null);
+  const [pwResetMsg, setPwResetMsg] = useState(null);
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
   const saveTimers = useRef({});
@@ -612,6 +613,31 @@ export default function App() {
     setMerchantRules((prev) => prev.filter((r) => r.id !== id));
   }
 
+  async function sendPasswordReset() {
+    setPwResetMsg(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(session.user.email);
+    if (error) setPwResetMsg({ ok: false, text: error.message });
+    else setPwResetMsg({ ok: true, text: `Reset link sent to ${session.user.email}` });
+  }
+
+  async function deleteAllData() {
+    const ok = window.confirm(
+      "This will permanently delete all your transactions, savings, budgets and merchant rules. This cannot be undone.\n\nAre you sure?"
+    );
+    if (!ok) return;
+    const uid = session.user.id;
+    await Promise.all([
+      supabase.from("transactions").delete().eq("user_id", uid),
+      supabase.from("savings").delete().eq("user_id", uid),
+      supabase.from("budgets").delete().eq("user_id", uid),
+      supabase.from("merchant_rules").delete().eq("user_id", uid),
+    ]);
+    setTransactions([]);
+    setSavings([]);
+    setBudgets(CATEGORIES.map((c) => ({ ...c })));
+    setMerchantRules([]);
+  }
+
   // ── Chart datasets ─────────────────────────────────────────────────────────
 
   const activeCats = budgets.filter((b) => bycat[b.name] > 0 && b.name !== "Transfers");
@@ -652,9 +678,6 @@ export default function App() {
             ))}
           </nav>
           <div className="header-actions">
-            <button className="icon-btn" onClick={toggleDark} title={darkMode ? "Light mode" : "Dark mode"}>
-              {darkMode ? "☀️" : "🌙"}
-            </button>
             <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
           </div>
         </div>
@@ -902,20 +925,64 @@ export default function App() {
 
         {/* SETTINGS */}
         {tab === "settings" && (
-          <div className="card">
-            <div className="card-title">Merchant rules</div>
-            {merchantRules.length === 0 ? (
-              <div className="empty-state">No rules yet — recategorise a transaction and click "Yes" to save one.</div>
-            ) : merchantRules.map((r) => (
-              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "0.5px solid #f1efe8" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: "#0b0b0b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant}</div>
-                  <div style={{ fontSize: 11, color: "#898781", marginTop: 2 }}>→ {r.category}</div>
-                </div>
-                <button className="remove-btn" onClick={() => deleteMerchantRule(r.id)}>✕</button>
+          <>
+            <div className="card">
+              <div className="card-title">Account</div>
+              <div className="settings-row">
+                <div className="settings-label">Signed in as</div>
+                <div className="settings-value">{session.user.email}</div>
               </div>
-            ))}
-          </div>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-label">Password</div>
+                  <div className="settings-hint">Send a reset link to your email address</div>
+                </div>
+                <button className="settings-btn" onClick={sendPasswordReset}>Send reset email</button>
+              </div>
+              {pwResetMsg && (
+                <div className={`import-msg ${pwResetMsg.ok ? "ok" : "err"}`} style={{ marginTop: 8 }}>{pwResetMsg.text}</div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="card-title">Merchant rules</div>
+              {merchantRules.length === 0 ? (
+                <div className="empty-state">No rules yet — recategorise a transaction and click "Yes" to save one.</div>
+              ) : merchantRules.map((r) => (
+                <div key={r.id} className="settings-row">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="settings-value" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant}</div>
+                    <div className="settings-hint">→ {r.category}</div>
+                  </div>
+                  <button className="remove-btn" onClick={() => deleteMerchantRule(r.id)}>✕</button>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <div className="card-title">Appearance</div>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-label">Dark mode</div>
+                  <div className="settings-hint">Switch between light and dark theme</div>
+                </div>
+                <button className="toggle-btn" onClick={toggleDark} aria-pressed={darkMode}>
+                  {darkMode ? "☀️ Light" : "🌙 Dark"}
+                </button>
+              </div>
+            </div>
+
+            <div className="card danger-zone">
+              <div className="card-title">Danger zone</div>
+              <div className="settings-row">
+                <div>
+                  <div className="settings-label">Delete all my data</div>
+                  <div className="settings-hint">Permanently removes all transactions, savings, budgets and rules</div>
+                </div>
+                <button className="danger-btn" onClick={deleteAllData}>Delete</button>
+              </div>
+            </div>
+          </>
         )}
       </main>
       )}

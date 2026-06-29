@@ -373,6 +373,63 @@ body {
 .auth-btn-secondary:not(:disabled):hover { background: #f4f3ef; color: #0b0b0b; }
 .auth-btn-secondary:disabled { opacity: 0.55; cursor: default; }
 
+/* Settings */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 0.5px solid #f1efe8;
+}
+.settings-row:last-of-type { border-bottom: none; }
+.settings-label { font-size: 13px; font-weight: 500; color: #0b0b0b; }
+.settings-hint { font-size: 12px; color: #898781; margin-top: 2px; }
+.settings-value { font-size: 13px; color: #52514e; }
+.settings-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 13px;
+  background: none;
+  border: 0.5px solid #d3d1c7;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #52514e;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-btn:hover { background: #f4f3ef; color: #0b0b0b; }
+.toggle-btn {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  font-size: 13px;
+  background: #f4f3ef;
+  border: 0.5px solid #d3d1c7;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #0b0b0b;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.toggle-btn:hover { background: #e8e7e2; }
+.danger-zone { border-color: #f5b8b8; }
+.danger-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 13px;
+  background: none;
+  border: 0.5px solid #f5b8b8;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #a32d2d;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.danger-btn:hover { background: #fcebeb; }
+
 /* Header actions (dark toggle + logout) */
 .header-actions {
   margin-left: auto;
@@ -497,6 +554,17 @@ body {
 .dark .auth-btn-secondary:not(:disabled):hover { background: #2a2a2a; color: #ffffff; }
 .dark .account-chip.muted { border-color: #2a2a2a; color: #666666; }
 .dark .tabs { border-top-color: #2a2a2a; }
+.dark .settings-row { border-bottom-color: #2a2a2a; }
+.dark .settings-label { color: #ffffff; }
+.dark .settings-hint { color: #666666; }
+.dark .settings-value { color: #a0a0a0; }
+.dark .settings-btn { border-color: #2a2a2a; color: #a0a0a0; }
+.dark .settings-btn:hover { background: #2a2a2a; color: #ffffff; }
+.dark .toggle-btn { background: #2a2a2a; border-color: #444; color: #ffffff; }
+.dark .toggle-btn:hover { background: #333; }
+.dark .danger-zone { border-color: #5a2020; }
+.dark .danger-btn { border-color: #5a2020; color: #e05555; }
+.dark .danger-btn:hover { background: #2d1414; }
 
 @media (max-width: 600px) {
   /* ── Header: row 1 = logo + logout, row 2 = scrollable tabs ── */
