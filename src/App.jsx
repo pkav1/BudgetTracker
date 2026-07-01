@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import { Chart } from "chart.js/auto";
 import "./App.css";
 import { supabase } from "./supabase";
+import pdfWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 function I(d) {
   return (
@@ -48,6 +49,7 @@ const CATEGORIES = [
 
 const ACCOUNTS = [
   { id: "revolut", name: "Revolut", color: "#191c33" },
+  { id: "boi", name: "Bank of Ireland", color: "#2a5fa5" },
 ];
 
 const CHART_COLORS = [
@@ -123,6 +125,104 @@ function parseRevolutCSV(text) {
     const id = `r-${hashStr(`${row[dateIdx]}|${row[descIdx]}|${row[amtIdx]}`)}`;
     const balance = balIdx >= 0 ? (parseFloat(row[balIdx]) ?? null) : null;
     txns.push({ id, date, description: row[descIdx] || "Unknown", amount: amt, category, account: "Revolut", balance });
+  }
+  return txns;
+}
+
+// ── BOI PDF parser ────────────────────────────────────────────────────────────
+
+const BOI_MONTH = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+const BOI_DATE_RE = /^(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})/i;
+const BOI_SKIP_RE = /BALANCE FORWARD|SUBTOTAL|^Page\s|\bBank of Ireland\b|Statement date|Your Current Account/i;
+const BOI_NUM_RE = /\b(\d{1,3}(?:,\d{3})*\.\d{2})\b/g;
+
+function parseBOIAmt(s) { return parseFloat(s.replace(/,/g, "")); }
+
+function catForBOI(desc) {
+  const d = desc.trim();
+  if (/^revolut\*\*/i.test(d)) return { category: "Transfers", isIncome: false };
+  if (/^paypal europe sepa dd/i.test(d)) return { category: "Subscriptions", isIncome: false };
+  if (/^ip\s/i.test(d)) return { category: "Other", isIncome: true };
+  return { category: catForDesc(d), isIncome: false };
+}
+
+async function parseBOIPDF(file) {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
+
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const txns = [];
+  let currentDate = null;
+  let prevBalance = null;
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    // Group text items into rows by y-coordinate (±3px tolerance)
+    const rows = [];
+    for (const item of content.items) {
+      if (!item.str.trim()) continue;
+      const y = item.transform[5];
+      const x = item.transform[4];
+      let row = rows.find(r => Math.abs(r.y - y) <= 3);
+      if (!row) { row = { y, items: [] }; rows.push(row); }
+      row.items.push({ text: item.str, x });
+    }
+    rows.sort((a, b) => b.y - a.y); // top-to-bottom (PDF y origin = bottom)
+
+    for (const { items } of rows) {
+      const line = items.sort((a, b) => a.x - b.x).map(i => i.text).join(" ").trim();
+      if (!line || BOI_SKIP_RE.test(line)) continue;
+
+      const dm = line.match(BOI_DATE_RE);
+      let rest = line;
+      if (dm) {
+        currentDate = new Date(parseInt(dm[3]), BOI_MONTH[dm[2].toLowerCase()], parseInt(dm[1]));
+        rest = line.slice(dm[0].length).trim();
+      }
+      if (!currentDate || !rest) continue;
+
+      // Extract all currency-format numbers (e.g. 1,234.56 or 3.49)
+      const nums = [...rest.matchAll(BOI_NUM_RE)];
+      if (!nums.length) continue;
+
+      let amount, balance = null, desc;
+      if (nums.length >= 2) {
+        // Last number = balance, second-to-last = payment amount
+        const last = nums[nums.length - 1];
+        const prev = nums[nums.length - 2];
+        balance = parseBOIAmt(last[1]);
+        amount = parseBOIAmt(prev[1]);
+        desc = rest.slice(0, prev.index).trim();
+      } else {
+        amount = parseBOIAmt(nums[0][1]);
+        desc = rest.slice(0, nums[0].index).trim();
+      }
+
+      if (!desc || isNaN(amount) || amount <= 0) continue;
+
+      let { category, isIncome } = catForBOI(desc);
+
+      // Balance delta is the most reliable sign indicator
+      if (balance !== null && prevBalance !== null) {
+        isIncome = balance > prevBalance;
+      }
+      if (balance !== null) prevBalance = balance;
+
+      const finalAmt = isIncome ? amount : -amount;
+      const dateStr = currentDate.toISOString().slice(0, 10);
+      txns.push({
+        id: `b-${hashStr(`${dateStr}|${desc}|${finalAmt}`)}`,
+        date: new Date(currentDate),
+        description: desc,
+        amount: finalAmt,
+        category,
+        account: "BOI",
+        balance,
+      });
+    }
   }
   return txns;
 }
@@ -408,6 +508,15 @@ export default function App() {
   const [portfolioError, setPortfolioError] = useState(null);
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
+  const [importAccount, setImportAccount] = useState("revolut");
+  const [importDateFrom, setImportDateFrom] = useState(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [importDateTo, setImportDateTo] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth() + 1, 0).toISOString().slice(0, 10);
+  });
   const saveTimers = useRef({});
 
   function toggleDark() {
@@ -580,75 +689,123 @@ export default function App() {
 
   // ── Data functions ─────────────────────────────────────────────────────────
 
+  async function importTransactions(parsed, accountLabel) {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession?.user?.id) {
+      setImportMsg({ ok: false, text: "Session expired — please log out and log back in, then try again." });
+      return;
+    }
+    await supabase.auth.setSession({
+      access_token: currentSession.access_token,
+      refresh_token: currentSession.refresh_token,
+    });
+    const uid = currentSession.user.id;
+
+    // Filter by selected date range
+    const from = new Date(importDateFrom + "T00:00:00");
+    const to = new Date(importDateTo + "T23:59:59");
+    const inRange = parsed.filter(t => t.date >= from && t.date <= to);
+    if (inRange.length === 0) {
+      setImportMsg({ ok: false, text: "No transactions found in the selected date range." });
+      return;
+    }
+
+    // Fetch fresh merchant rules and apply to non-transfer rows
+    const { data: freshRules } = await supabase.from("merchant_rules").select("*").eq("user_id", uid);
+    const rules = freshRules ?? merchantRules;
+    const withRules = inRange.map(t => {
+      if (t.category === "Transfers") return t;
+      const desc = t.description.toLowerCase();
+      const rule = rules.find(r => desc.includes(r.merchant));
+      return rule ? { ...t, category: rule.category } : t;
+    });
+
+    // Duplicate detection: same account + date + description + amount (not ID-based)
+    const { data: existingForAcct } = await supabase
+      .from("transactions")
+      .select("date, description, amount")
+      .eq("user_id", uid)
+      .eq("account", accountLabel)
+      .gte("date", from.toISOString())
+      .lte("date", to.toISOString());
+    const existingKeys = new Set(
+      (existingForAcct || []).map(t =>
+        `${t.date.slice(0, 10)}|${t.description}|${Math.round(parseFloat(t.amount) * 100)}`
+      )
+    );
+    const toInsert = withRules.filter(t => {
+      const key = `${t.date.toISOString().slice(0, 10)}|${t.description}|${Math.round(t.amount * 100)}`;
+      return !existingKeys.has(key);
+    });
+    const skipped = inRange.length - toInsert.length;
+
+    if (toInsert.length === 0) {
+      setImportMsg({ ok: true, text: `All ${inRange.length} transactions already imported${skipped > 0 ? ` — ${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped` : ""}.` });
+      return;
+    }
+
+    // Preserve existing manual recategorisations for rows that already exist in DB
+    const ids = toInsert.map(t => t.id);
+    const { data: existingCats } = await supabase
+      .from("transactions").select("id, category").in("id", ids).eq("user_id", uid);
+    const savedCats = Object.fromEntries((existingCats || []).map(t => [t.id, t.category]));
+
+    const rows = toInsert.map(t => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      description: t.description,
+      amount: t.amount,
+      category: savedCats[t.id] ?? t.category,
+      account: accountLabel,
+      balance: t.balance ?? null,
+      user_id: uid,
+    }));
+
+    const { error: upsertError } = await supabase.from("transactions").upsert(rows, { onConflict: "id" });
+    if (upsertError) {
+      setImportMsg({ ok: false, text: `Import failed: ${upsertError.message}` });
+      return;
+    }
+
+    const { data: dbTxns } = await supabase
+      .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
+    if (dbTxns) setTransactions(dbTxns.map(t => ({ ...t, date: new Date(t.date) })));
+
+    const dupNote = skipped > 0 ? ` (${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped)` : "";
+    setImportMsg({ ok: true, text: `${toInsert.length} transaction${toInsert.length !== 1 ? "s" : ""} imported${dupNote}.` });
+  }
+
   function handleCSV(e) {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = "";
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      // Re-read the session inside the async callback so we never use a stale closure value,
-      // then explicitly set it so the client attaches the JWT to every subsequent request.
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession?.user?.id) {
-        setImportMsg({ ok: false, text: "Session expired — please log out and log back in, then try again." });
-        return;
-      }
-      await supabase.auth.setSession({
-        access_token: currentSession.access_token,
-        refresh_token: currentSession.refresh_token,
-      });
-      const uid = currentSession.user.id;
-
       const parsed = parseRevolutCSV(ev.target.result);
       if (!parsed) {
         setImportMsg({ ok: false, text: "Could not read this file. Make sure it's a Revolut CSV export." });
         return;
       }
-
-      // Fetch fresh rules so this import benefits from any rules added during the session
-      const { data: freshRules } = await supabase.from("merchant_rules").select("*").eq("user_id", uid);
-      const rules = freshRules ?? merchantRules;
-
-      // Apply merchant rules to non-transfer rows before falling back to keyword defaults
-      const parsedWithRules = parsed.map((t) => {
-        if (t.category === "Transfers") return t;
-        const desc = t.description.toLowerCase();
-        const rule = rules.find((r) => desc.includes(r.merchant));
-        return rule ? { ...t, category: rule.category } : t;
-      });
-
-      // Fetch existing categories so re-imports don't overwrite manual recategorisations,
-      // while still updating the balance column for rows that already exist.
-      const ids = parsedWithRules.map((t) => t.id);
-      const { data: existing } = await supabase
-        .from("transactions").select("id, category").in("id", ids).eq("user_id", uid);
-      const savedCats = Object.fromEntries((existing || []).map((t) => [t.id, t.category]));
-
-      const rows = parsedWithRules.map((t) => ({
-        id: t.id,
-        date: t.date.toISOString(),
-        description: t.description,
-        amount: t.amount,
-        category: savedCats[t.id] ?? t.category,
-        account: t.account,
-        balance: t.balance ?? null,
-        user_id: uid,
-      }));
-
-      console.log("transactions upsert payload — first row:", rows[0], "| total rows:", rows.length, "| all have user_id:", rows.every((r) => !!r.user_id));
-      const { error: upsertError } = await supabase.from("transactions").upsert(rows, { onConflict: "id" });
-      if (upsertError) {
-        console.error("transactions upsert error:", upsertError);
-        setImportMsg({ ok: false, text: `Import failed: ${upsertError.message}` });
-        return;
-      }
-
-      const { data: dbTxns } = await supabase
-        .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
-      if (dbTxns) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
-
-      setImportMsg({ ok: true, text: `${parsed.length} transactions imported from ${file.name}.` });
+      await importTransactions(parsed, "Revolut");
     };
     reader.readAsText(file);
+  }
+
+  async function handlePDF(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    setImportMsg({ ok: null, text: "Parsing PDF, please wait…" });
+    try {
+      const parsed = await parseBOIPDF(file);
+      if (!parsed.length) {
+        setImportMsg({ ok: false, text: "No transactions found in this PDF. Make sure it's a Bank of Ireland statement." });
+        return;
+      }
+      await importTransactions(parsed, "BOI");
+    } catch (err) {
+      setImportMsg({ ok: false, text: `Failed to parse PDF: ${err.message}` });
+    }
   }
 
   async function recategorise(id, cat) {
@@ -1027,20 +1184,55 @@ export default function App() {
           <>
             <div className="card">
               <div className="card-title">Select account</div>
-              {ACCOUNTS.map((a) => (
-                <span key={a.id} className="account-chip selected" style={{ borderColor: a.color }}>{a.name}</span>
-              ))}
-              <span className="account-chip muted">+ AIB (coming soon)</span>
-              <span className="account-chip muted">+ BOI (coming soon)</span>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {ACCOUNTS.map((a) => (
+                  <button
+                    key={a.id}
+                    className={`account-chip${importAccount === a.id ? " selected" : ""}`}
+                    style={importAccount === a.id ? { background: a.color, borderColor: a.color, color: "#fff" } : {}}
+                    onClick={() => { setImportAccount(a.id); setImportMsg(null); }}
+                  >
+                    {a.name}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="upload-zone" onClick={() => document.getElementById("csvFile").click()}>
-              <div className="upload-icon">📂</div>
-              <p>Click to upload your Revolut CSV</p>
-              <small>Revolut app → Account → Statement → Download → CSV</small>
+
+            <div className="card">
+              <div className="card-title">Date range</div>
+              <div className="import-date-range">
+                <div className="import-date-field">
+                  <label>From</label>
+                  <input type="date" className="import-date-input" value={importDateFrom} onChange={(e) => setImportDateFrom(e.target.value)} />
+                </div>
+                <div className="import-date-field">
+                  <label>To</label>
+                  <input type="date" className="import-date-input" value={importDateTo} onChange={(e) => setImportDateTo(e.target.value)} />
+                </div>
+              </div>
             </div>
+
+            {importAccount === "revolut" && (
+              <div className="upload-zone" onClick={() => document.getElementById("csvFile").click()}>
+                <div className="upload-icon">📂</div>
+                <p>Click to upload your Revolut CSV</p>
+                <small>Revolut app → Account → Statement → Download → CSV</small>
+              </div>
+            )}
+            {importAccount === "boi" && (
+              <div className="upload-zone" onClick={() => document.getElementById("pdfFile").click()}>
+                <div className="upload-icon">📄</div>
+                <p>Click to upload your Bank of Ireland PDF statement</p>
+                <small>BOI Online Banking → Statements → Download as PDF</small>
+              </div>
+            )}
+
             <input type="file" id="csvFile" accept=".csv" style={{ display: "none" }} onChange={handleCSV} />
+            <input type="file" id="pdfFile" accept=".pdf" style={{ display: "none" }} onChange={handlePDF} />
             {importMsg && (
-              <div className={`import-msg ${importMsg.ok ? "ok" : "err"}`}>{importMsg.text}</div>
+              <div className={`import-msg ${importMsg.ok === true ? "ok" : importMsg.ok === false ? "err" : "info"}`}>
+                {importMsg.text}
+              </div>
             )}
           </>
         )}
