@@ -183,9 +183,39 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 .upload-zone:hover { border-color: #888780; background: #fafaf8; }
+.upload-zone.drag-over {
+  border-color: #2a78d6;
+  background: #eef3fd;
+}
 .upload-icon { font-size: 32px; margin-bottom: 10px; }
 .upload-zone p { font-size: 14px; color: #52514e; margin-bottom: 4px; }
 .upload-zone small { font-size: 12px; color: #898781; }
+
+/* Import date range */
+.import-date-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.import-all-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #52514e;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.import-all-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: #2a78d6;
+  flex-shrink: 0;
+}
 
 .import-msg {
   margin-top: 1rem; padding: 10px 14px; border-radius: 8px; font-size: 14px;
@@ -867,6 +897,10 @@ body {
   /* Import on mobile */
   .import-date-range { gap: 12px; }
 }
+
+/* Dark mode: import date + account chips + drag-drop */
+.dark .upload-zone.drag-over { border-color: #2a78d6; background: #0f1f3d; }
+.dark .import-all-toggle { color: #a0a0a0; }
 
 /* Dark mode: import date + account chips */
 .dark .account-chip { border-color: #2a2a2a; color: #666666; }

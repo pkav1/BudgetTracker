@@ -122,6 +122,10 @@ function parseRevolutCSV(text) {
     if (isNaN(date.getTime()) || isNaN(amt) || amt === 0) continue;
     const isTransfer = typeIdx >= 0 && row[typeIdx] === "Transfer";
     const category = isTransfer ? "Transfers" : catForDesc(row[descIdx] || "");
+    // DEBUG: log any row whose description contains "revolut" so we can see the raw type + description
+    if ((row[descIdx] || "").toLowerCase().includes("revolut")) {
+      console.log("[DEBUG revolut txn]", { type: row[typeIdx], description: row[descIdx], resolvedCategory: category });
+    }
     const id = `r-${hashStr(`${row[dateIdx]}|${row[descIdx]}|${row[amtIdx]}`)}`;
     const balance = balIdx >= 0 ? (parseFloat(row[balIdx]) ?? null) : null;
     txns.push({ id, date, description: row[descIdx] || "Unknown", amount: amt, category, account: "Revolut", balance });
@@ -517,6 +521,8 @@ export default function App() {
     const n = new Date();
     return new Date(n.getFullYear(), n.getMonth() + 1, 0).toISOString().slice(0, 10);
   });
+  const [importAllDates, setImportAllDates] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const saveTimers = useRef({});
 
   function toggleDark() {
@@ -701,12 +707,14 @@ export default function App() {
     });
     const uid = currentSession.user.id;
 
-    // Filter by selected date range
+    // Filter by selected date range (skipped when importAllDates is on)
     const from = new Date(importDateFrom + "T00:00:00");
     const to = new Date(importDateTo + "T23:59:59");
-    const inRange = parsed.filter(t => t.date >= from && t.date <= to);
+    const inRange = importAllDates ? parsed : parsed.filter(t => t.date >= from && t.date <= to);
     if (inRange.length === 0) {
-      setImportMsg({ ok: false, text: "No transactions found in the selected date range." });
+      setImportMsg({ ok: false, text: importAllDates
+        ? "No transactions found in this file."
+        : "No transactions found in the selected date range." });
       return;
     }
 
@@ -720,14 +728,16 @@ export default function App() {
       return rule ? { ...t, category: rule.category } : t;
     });
 
-    // Duplicate detection: same account + date + description + amount (not ID-based)
-    const { data: existingForAcct } = await supabase
+    // Duplicate detection: same account + date + description + amount (not ID-based).
+    // When importing all dates, fetch all existing rows for this account (no date window).
+    const dupQuery = supabase
       .from("transactions")
       .select("date, description, amount")
       .eq("user_id", uid)
-      .eq("account", accountLabel)
-      .gte("date", from.toISOString())
-      .lte("date", to.toISOString());
+      .eq("account", accountLabel);
+    const { data: existingForAcct } = await (importAllDates
+      ? dupQuery
+      : dupQuery.gte("date", from.toISOString()).lte("date", to.toISOString()));
     const existingKeys = new Set(
       (existingForAcct || []).map(t =>
         `${t.date.slice(0, 10)}|${t.description}|${Math.round(parseFloat(t.amount) * 100)}`
@@ -775,10 +785,7 @@ export default function App() {
     setImportMsg({ ok: true, text: `${toInsert.length} transaction${toInsert.length !== 1 ? "s" : ""} imported${dupNote}.` });
   }
 
-  function handleCSV(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
+  function processCSVFile(file) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const parsed = parseRevolutCSV(ev.target.result);
@@ -791,10 +798,7 @@ export default function App() {
     reader.readAsText(file);
   }
 
-  async function handlePDF(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    e.target.value = "";
+  async function processPDFFile(file) {
     setImportMsg({ ok: null, text: "Parsing PDF, please wait…" });
     try {
       const parsed = await parseBOIPDF(file);
@@ -806,6 +810,29 @@ export default function App() {
     } catch (err) {
       setImportMsg({ ok: false, text: `Failed to parse PDF: ${err.message}` });
     }
+  }
+
+  function handleCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    processCSVFile(file);
+  }
+
+  function handlePDF(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    processPDFFile(file);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (importAccount === "revolut") processCSVFile(file);
+    else processPDFFile(file);
   }
 
   async function recategorise(id, cat) {
@@ -1199,31 +1226,57 @@ export default function App() {
             </div>
 
             <div className="card">
-              <div className="card-title">Date range</div>
-              <div className="import-date-range">
-                <div className="import-date-field">
-                  <label>From</label>
-                  <input type="date" className="import-date-input" value={importDateFrom} onChange={(e) => setImportDateFrom(e.target.value)} />
-                </div>
-                <div className="import-date-field">
-                  <label>To</label>
-                  <input type="date" className="import-date-input" value={importDateTo} onChange={(e) => setImportDateTo(e.target.value)} />
-                </div>
+              <div className="import-date-header">
+                <div className="card-title" style={{ marginBottom: 0 }}>Date range</div>
+                <label className="import-all-toggle">
+                  <input
+                    type="checkbox"
+                    checked={importAllDates}
+                    onChange={(e) => setImportAllDates(e.target.checked)}
+                  />
+                  Import all dates
+                </label>
               </div>
+              {!importAllDates && (
+                <div className="import-date-range" style={{ marginTop: "0.75rem" }}>
+                  <div className="import-date-field">
+                    <label>From</label>
+                    <input type="date" className="import-date-input" value={importDateFrom} onChange={(e) => setImportDateFrom(e.target.value)} />
+                  </div>
+                  <div className="import-date-field">
+                    <label>To</label>
+                    <input type="date" className="import-date-input" value={importDateTo} onChange={(e) => setImportDateTo(e.target.value)} />
+                  </div>
+                </div>
+              )}
             </div>
 
             {importAccount === "revolut" && (
-              <div className="upload-zone" onClick={() => document.getElementById("csvFile").click()}>
-                <div className="upload-icon">📂</div>
-                <p>Click to upload your Revolut CSV</p>
-                <small>Revolut app → Account → Statement → Download → CSV</small>
+              <div
+                className={`upload-zone${dragOver ? " drag-over" : ""}`}
+                onClick={() => document.getElementById("csvFile").click()}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+                onDrop={handleDrop}
+              >
+                <div className="upload-icon">{dragOver ? "📥" : "📂"}</div>
+                <p>{dragOver ? "Drop to import" : "Click to upload your Revolut CSV"}</p>
+                <small>Or drag and drop a file here · Revolut app → Account → Statement → CSV</small>
               </div>
             )}
             {importAccount === "boi" && (
-              <div className="upload-zone" onClick={() => document.getElementById("pdfFile").click()}>
-                <div className="upload-icon">📄</div>
-                <p>Click to upload your Bank of Ireland PDF statement</p>
-                <small>BOI Online Banking → Statements → Download as PDF</small>
+              <div
+                className={`upload-zone${dragOver ? " drag-over" : ""}`}
+                onClick={() => document.getElementById("pdfFile").click()}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragOver(false); }}
+                onDrop={handleDrop}
+              >
+                <div className="upload-icon">{dragOver ? "📥" : "📄"}</div>
+                <p>{dragOver ? "Drop to import" : "Click to upload your Bank of Ireland PDF statement"}</p>
+                <small>Or drag and drop a file here · BOI Online Banking → Statements → PDF</small>
               </div>
             )}
 
