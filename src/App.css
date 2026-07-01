@@ -284,13 +284,24 @@ body {
 
 /* ── Savings ────────────────────────────────────────────────────────────────── */
 .savings-row {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 10px 0; border-bottom: 1px solid var(--border-light);
 }
 .savings-row:last-child { border-bottom: none; }
-.savings-info { flex: 1; }
+.savings-info { flex: 1; min-width: 0; }
+.savings-name-row { display: flex; align-items: center; gap: 6px; }
 .savings-name { font-size: 13px; color: var(--text-1); }
 .savings-target { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+.vault-sync-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 1px 6px; border-radius: 99px; flex-shrink: 0;
+  background: var(--accent-bg); color: var(--accent);
+}
+.vault-last-imported { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+.vault-auto-note {
+  width: 100%; font-size: 10px; color: var(--text-3); font-style: italic;
+  padding-top: 2px;
+}
 .savings-controls { display: flex; align-items: center; gap: 8px; }
 .savings-prefix { font-size: 13px; color: var(--text-2); }
 .savings-input {

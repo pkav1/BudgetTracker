@@ -120,6 +120,13 @@ function hashStr(s) {
 }
 
 function parseRevolutCSV(text) {
+  // Consolidated multi-section format (new export style)
+  if (text.includes("Current Accounts Transaction Statements") ||
+      text.includes("Current Accounts Summaries")) {
+    return parseConsolidatedRevolutCSV(text);
+  }
+
+  // Legacy flat-CSV format
   const lines = text.trim().split("\n");
   const cols = lines[0].split(",").map((c) => c.replace(/"/g, "").trim().toLowerCase());
   const typeIdx    = cols.findIndex((c) => c === "type");
@@ -149,7 +156,113 @@ function parseRevolutCSV(text) {
     const balance = balIdx >= 0 ? (parseFloat(row[balIdx]) ?? null) : null;
     txns.push({ id, date, description: row[descIdx] || "Unknown", amount: amt, category, account: "Revolut", balance });
   }
-  return txns;
+  return { txns, vaultDeposits: [] };
+}
+
+function parseConsolidatedRevolutCSV(text) {
+  const MONTH = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+
+  // Guard against encoding artifact: UTF-8 € bytes read as Latin-1 produce â¬
+  const src = text.replace(/â¬/g, "€");
+
+  function csvRow(line) {
+    const cells = [];
+    let inQ = false, cell = "";
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === "," && !inQ) { cells.push(cell.trim()); cell = ""; }
+      else { cell += ch; }
+    }
+    cells.push(cell.trim());
+    return cells;
+  }
+
+  function parseAmt(s) {
+    const n = parseFloat((s ?? "").replace(/[^\d.\-]/g, ""));
+    return isNaN(n) ? NaN : n;
+  }
+
+  function parseDate(s) {
+    const p = (s ?? "").trim().split(/\s+/);
+    if (p.length !== 3) return null;
+    const d = parseInt(p[0]), m = MONTH[p[1].toLowerCase()], y = parseInt(p[2]);
+    return (isNaN(d) || m === undefined || isNaN(y)) ? null : new Date(y, m, d);
+  }
+
+  const txns = [];
+  const vaultDeposits = [];  // { txnId, amount } — only for new-to-DB rows, checked in importTransactions
+  let state = "seek_current";
+  let dI = -1, descI = -1, amtI = -1, revCatI = -1;
+  let sdI = -1, sdescI = -1, snetI = -1;
+
+  for (const raw of src.split("\n")) {
+    const cells = csvRow(raw);
+    const f = cells[0] ?? "";
+
+    if (state === "seek_current") {
+      if (f === "Current Accounts Transaction Statements") state = "seek_eur";
+
+    } else if (state === "seek_eur") {
+      if (f === "Personal Account (EUR)") state = "seek_txn_label";
+
+    } else if (state === "seek_txn_label") {
+      if (f === "Transaction statement") state = "seek_txn_header";
+
+    } else if (state === "seek_txn_header") {
+      const low = cells.map(c => c.toLowerCase());
+      if (low[0] === "date" && low.some(c => c.includes("money"))) {
+        dI      = low.indexOf("date");
+        descI   = low.indexOf("description");
+        revCatI = low.indexOf("category");
+        amtI    = low.findIndex(c => c.includes("money"));
+        state = "parse_eur";
+      }
+
+    } else if (state === "parse_eur") {
+      if (f === "Total" || f.startsWith("---")) { state = "seek_savings"; continue; }
+      if (!f) continue;
+      const revCat = revCatI >= 0 ? (cells[revCatI] ?? "") : "";
+      if (revCat === "Top up") continue;
+      const date = parseDate(cells[dI]);
+      const desc = cells[descI] ?? "";
+      const amt  = parseAmt(cells[amtI]);
+      if (!date || isNaN(amt) || amt === 0 || !desc) continue;
+      const isSavingsTransfer = /^to instant access savings$/i.test(desc);
+      const pocketMatch = !isSavingsTransfer && desc.match(/^to pocket eur (.+?) from eur$/i);
+      const category = (isSavingsTransfer || pocketMatch) ? "Transfers" : catForDesc(desc);
+      const id = `r-${hashStr(`${date.toISOString().slice(0,10)}|${desc}|${amt}`)}`;
+      txns.push({ id, date, description: desc, amount: amt, category, account: "Revolut", balance: null });
+      if (isSavingsTransfer) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: "Emergency Fund" });
+      else if (pocketMatch) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: pocketMatch[1].trim() });
+
+    } else if (state === "seek_savings") {
+      if (f === "Savings Accounts Transaction Statements") state = "seek_savings_eur";
+
+    } else if (state === "seek_savings_eur") {
+      if (f.startsWith("Savings") && f.includes("EUR")) state = "seek_savings_header";
+
+    } else if (state === "seek_savings_header") {
+      const low = cells.map(c => c.toLowerCase().trim());
+      if (low.some(c => c.includes("net interest"))) {
+        sdI    = low.indexOf("date");
+        sdescI = low.indexOf("description");
+        snetI  = low.findIndex(c => c.includes("net interest"));
+        state = "parse_savings";
+      }
+
+    } else if (state === "parse_savings") {
+      if (!f || f.startsWith("---")) continue;
+      const date = parseDate(cells[sdI]);
+      const desc = cells[sdescI] ?? "";
+      const amt  = parseAmt(cells[snetI]);
+      if (!date || isNaN(amt) || amt === 0 || !desc) continue;
+      const id = `r-${hashStr(`${date.toISOString().slice(0,10)}|${desc}|${amt}`)}`;
+      txns.push({ id, date, description: desc, amount: amt, category: "Other", account: "Revolut", balance: null });
+      vaultDeposits.push({ txnId: id, amount: amt, vaultName: "Emergency Fund" });
+    }
+  }
+
+  return { txns, vaultDeposits };
 }
 
 // ── BOI PDF parser ────────────────────────────────────────────────────────────
@@ -616,6 +729,9 @@ export default function App() {
   const [txnDateFrom, setTxnDateFrom] = useState("");
   const [txnDateTo, setTxnDateTo] = useState("");
   const saveTimers = useRef({});
+  const [revVaultMeta, setRevVaultMeta] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
+  });
 
   // ── Transaction search / filter ───────────────────────────────────────────
 
@@ -663,7 +779,7 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const names = { dashboard: "Dashboard", transactions: "Transactions", budget: "Budget", import: "Import", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
+    const names = { dashboard: "Dashboard", transactions: "Transactions", budget: "Budget", statements: "Statements", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
     document.title = `${names[tab] ?? tab} — Budget Tracker`;
   }, [tab]);
 
@@ -914,7 +1030,7 @@ export default function App() {
 
   // ── Data functions ─────────────────────────────────────────────────────────
 
-  async function importTransactions(parsed, accountLabel) {
+  async function importTransactions(parsed, accountLabel, vaultDeposits) {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession?.user?.id) {
       setImportMsg({ ok: false, text: "Session expired — please log out and log back in, then try again." });
@@ -1000,19 +1116,67 @@ export default function App() {
       .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
     if (dbTxns) setTransactions(dbTxns.map(t => ({ ...t, date: new Date(t.date) })));
 
+    // Apply vault deposits only for non-duplicate transactions, grouped by vault name.
+    let vaultNote = "";
+    if (vaultDeposits?.length > 0) {
+      const insertedIds = new Set(toInsert.map(t => t.id));
+      const pending = vaultDeposits.filter(d => insertedIds.has(d.txnId));
+      if (pending.length > 0) {
+        const byVault = {};
+        for (const d of pending) byVault[d.vaultName] = (byVault[d.vaultName] || 0) + d.amount;
+
+        const importDate = new Date().toISOString().slice(0, 10);
+        const updatedMeta = { ...JSON.parse(localStorage.getItem("revolut_vaults") || "{}") };
+        const vaultNotes = [];
+        let localSavings = savings; // local snapshot updated as vaults are created in this run
+
+        for (const [vaultName, total] of Object.entries(byVault)) {
+          const depositTotal = parseFloat(total.toFixed(2));
+          if (depositTotal <= 0) continue;
+
+          let vault = localSavings.find(v => v.name === vaultName);
+          if (!vault) {
+            const { data: newVault } = await supabase
+              .from("savings")
+              .insert({ name: vaultName, balance: 0, target: 0, user_id: uid })
+              .select().single();
+            if (newVault) {
+              vault = newVault;
+              setSavings(prev => [...prev, newVault]);
+              localSavings = [...localSavings, newVault];
+            }
+          }
+          if (vault) {
+            const newBal = parseFloat((vault.balance + depositTotal).toFixed(2));
+            await supabase.from("savings").update({ balance: newBal }).eq("id", vault.id).eq("user_id", uid);
+            setSavings(prev => prev.map(v => v.id === vault.id ? { ...v, balance: newBal } : v));
+            localSavings = localSavings.map(v => v.id === vault.id ? { ...v, balance: newBal } : v);
+            updatedMeta[vault.id] = { source: "revolut", lastImported: importDate };
+            vaultNotes.push(`+€${depositTotal.toFixed(2)} → ${vaultName}`);
+          }
+        }
+
+        if (vaultNotes.length > 0) {
+          localStorage.setItem("revolut_vaults", JSON.stringify(updatedMeta));
+          setRevVaultMeta(updatedMeta);
+          vaultNote = ` · ${vaultNotes.join(", ")}`;
+        }
+      }
+    }
+
     const dupNote = skipped > 0 ? ` (${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped)` : "";
-    setImportMsg({ ok: true, text: `${toInsert.length} transaction${toInsert.length !== 1 ? "s" : ""} imported${dupNote}.` });
+    setImportMsg({ ok: true, text: `${toInsert.length} transaction${toInsert.length !== 1 ? "s" : ""} imported${dupNote}${vaultNote}.` });
   }
 
   function processCSVFile(file) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
-      const parsed = parseRevolutCSV(ev.target.result);
-      if (!parsed) {
+      const result = parseRevolutCSV(ev.target.result);
+      if (!result) {
         setImportMsg({ ok: false, text: "Could not read this file. Make sure it's a Revolut CSV export." });
         return;
       }
-      await importTransactions(parsed, "Revolut");
+      await importTransactions(result.txns, "Revolut", result.vaultDeposits);
     };
     reader.readAsText(file);
   }
@@ -1260,13 +1424,20 @@ export default function App() {
         <div className="header-inner">
           <span className="logo">💶 Budget</span>
           <nav className="tabs">
-            {["dashboard","transactions","budget","import","savings","investments","planner","settings"].map((t) => (
+            {["dashboard","transactions","budget","statements","savings","investments","planner","settings"].map((t) => (
               <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {{ statements: "Statements" }[t] ?? (t.charAt(0).toUpperCase() + t.slice(1))}
               </button>
             ))}
           </nav>
           <div className="header-actions">
+            <button
+              className="icon-btn"
+              onClick={toggleDark}
+              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {darkMode ? "☀️" : "🌙"}
+            </button>
             <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
           </div>
         </div>
@@ -1525,6 +1696,26 @@ export default function App() {
         {tab === "budget" && (
           <div className="card">
             <div className="card-title">Weekly budget limits</div>
+            {planner.monthly_income > 0 && (
+              <div style={{
+                background: weeklyBudgetMonthly > plannerAvailable ? "var(--red-bg)"
+                  : weeklyBudgetMonthly >= plannerAvailable * 0.9 ? "var(--amber-bg)"
+                  : "var(--green-bg)",
+                color: weeklyBudgetMonthly > plannerAvailable ? "var(--red)"
+                  : weeklyBudgetMonthly >= plannerAvailable * 0.9 ? "var(--amber)"
+                  : "var(--green)",
+                borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 500, marginBottom: "1rem",
+              }}>
+                <div>Planner: €{plannerAvailable.toFixed(0)}/mo available · Limits total: €{weeklyBudgetMonthly.toFixed(0)}/mo</div>
+                <div style={{ fontWeight: 400, fontSize: 12, marginTop: 3, opacity: 0.85 }}>
+                  {weeklyBudgetMonthly > plannerAvailable
+                    ? `€${(weeklyBudgetMonthly - plannerAvailable).toFixed(0)} over — reduce limits or update your Planner`
+                    : weeklyBudgetMonthly >= plannerAvailable * 0.9
+                    ? `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} to spare — limits are close to the maximum`
+                    : `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} buffer — limits fit comfortably`}
+                </div>
+              </div>
+            )}
             {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => (
               <div className="budget-row budget-edit-row" key={b.name}>
                 <div className="budget-label">{b.icon}<span>{b.name}</span></div>
@@ -1548,8 +1739,8 @@ export default function App() {
           </div>
         )}
 
-        {/* IMPORT */}
-        {tab === "import" && (
+        {/* STATEMENTS */}
+        {tab === "statements" && (
           <>
             <div className="card">
               <div className="card-title">Select account</div>
@@ -1642,11 +1833,18 @@ export default function App() {
               )}
               {savings.map((v) => {
                 const pct = Math.min(100, (v.balance / v.target) * 100);
+                const autoMeta = revVaultMeta[v.id];
                 return (
                   <div className="savings-row" key={v.id}>
                     <div className="savings-info">
-                      <div className="savings-name">{v.name}</div>
+                      <div className="savings-name-row">
+                        <span className="savings-name">{v.name}</span>
+                        {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
+                      </div>
                       <div className="savings-target">Target: €{v.target.toLocaleString()}</div>
+                      {autoMeta && (
+                        <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>
+                      )}
                     </div>
                     <div className="savings-controls">
                       <span className="savings-prefix">€</span>
@@ -1665,6 +1863,9 @@ export default function App() {
                       <span className={`badge ${pct >= 100 ? "badge-green" : pct >= 50 ? "badge-warn" : "badge-red"}`}>{pct.toFixed(0)}%</span>
                       <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
                     </div>
+                    {autoMeta && (
+                      <div className="vault-auto-note">Balance overwritten on next Revolut import</div>
+                    )}
                   </div>
                 );
               })}
