@@ -891,6 +891,7 @@ body {
   .cat-select { min-height: 38px; padding: 6px 5px; }
   .add-btn { min-height: 44px; }
   .remove-btn { min-height: 40px; min-width: 40px; }
+  .filter-chip { padding: 6px 12px; min-height: 34px; font-size: 13px; }
   .savings-input { width: 80px; }
   .budget-input { width: 56px; }
 

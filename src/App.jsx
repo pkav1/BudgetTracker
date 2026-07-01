@@ -41,7 +41,7 @@ const CATEGORIES = [
     icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
   { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
     icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
-  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from"],
+  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from", "revolut**"],
     icon: I(<><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></>)},
   { name: "Other", color: "#898781", weekly: 30, keywords: [],
     icon: I(<><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></>)},
@@ -138,12 +138,11 @@ function parseRevolutCSV(text) {
     const date = new Date(row[dateIdx]);
     const amt = parseFloat(row[amtIdx]);
     if (isNaN(date.getTime()) || isNaN(amt) || amt === 0) continue;
-    const isTransfer = typeIdx >= 0 && row[typeIdx] === "Transfer";
-    const category = isTransfer ? "Transfers" : catForDesc(row[descIdx] || "");
-    // DEBUG: log any row whose description contains "revolut" so we can see the raw type + description
-    if ((row[descIdx] || "").toLowerCase().includes("revolut")) {
-      console.log("[DEBUG revolut txn]", { type: row[typeIdx], description: row[descIdx], resolvedCategory: category });
-    }
+    const desc = row[descIdx] || "";
+    // "Transfer" type catches Revolut-to-savings and similar; description check catches
+    // Revolut-to-Revolut peer payments that Revolut labels as CARD_PAYMENT in the CSV.
+    const isTransfer = (typeIdx >= 0 && row[typeIdx] === "Transfer") || /^revolut\*\*/i.test(desc);
+    const category = isTransfer ? "Transfers" : catForDesc(desc);
     const id = `r-${hashStr(`${row[dateIdx]}|${row[descIdx]}|${row[amtIdx]}`)}`;
     const balance = balIdx >= 0 ? (parseFloat(row[balIdx]) ?? null) : null;
     txns.push({ id, date, description: row[descIdx] || "Unknown", amount: amt, category, account: "Revolut", balance });
@@ -738,7 +737,24 @@ export default function App() {
           return db ? { ...c, weekly: db.weekly } : c;
         }));
       }
-      if (dbTxns?.length) setTransactions(dbTxns.map((t) => ({ ...t, date: new Date(t.date) })));
+      if (dbTxns?.length) {
+        const txns = dbTxns.map((t) => ({ ...t, date: new Date(t.date) }));
+        setTransactions(txns);
+        // One-time migration: fix Revolut** rows imported before transfer detection was added
+        const toFix = txns.filter(t => /^revolut\*\*/i.test(t.description) && t.category !== "Transfers");
+        if (toFix.length > 0) {
+          const fixIds = toFix.map(t => t.id);
+          supabase.from("transactions")
+            .update({ category: "Transfers" })
+            .eq("user_id", uid)
+            .in("id", fixIds)
+            .then(() => {
+              setTransactions(prev => prev.map(t =>
+                fixIds.includes(t.id) ? { ...t, category: "Transfers" } : t
+              ));
+            });
+        }
+      }
       if (dbSavings?.length) setSavings(dbSavings);
       if (dbRules?.length) setMerchantRules(dbRules);
       if (dbPlanner?.length) {
@@ -1367,7 +1383,7 @@ export default function App() {
               {/* Category filter */}
               <div className="filter-section">
                 <div className="filter-label">Category</div>
-                <div className="filter-chips filter-chips-scroll">
+                <div className="filter-chips">
                   {CATEGORIES.map(c => {
                     const on = txnCategories.includes(c.name);
                     return (
