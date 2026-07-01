@@ -41,6 +41,8 @@ const CATEGORIES = [
     icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
   { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
     icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
+  { name: "IOUs & Splits", color: "#8b5cf6", weekly: 0, keywords: ["transfer to ", "transfer from "],
+    icon: I(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 1-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>)},
   { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["revolut**"],
     icon: I(<><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></>)},
   { name: "Other", color: "#898781", weekly: 30, keywords: [],
@@ -771,24 +773,25 @@ export default function App() {
               ));
             });
         }
-        // One-time migration: transactions tagged "Transfers" via the now-removed "transfer to/from"
-        // keywords (e.g. "Transfer from JOHN PATRICK TARPEY") are person payments, not own-account
-        // transfers — reclassify to "Other" so they count in totals correctly.
-        const keywordMislabelled = txns
+        // One-time migration: person-payment transactions (e.g. "Transfer from JOHN PATRICK TARPEY")
+        // should be "IOUs & Splits", not "Transfers" or "Other".
+        // Catches rows previously mislabelled as "Transfers" (keyword era) and any already moved to
+        // "Other" by an earlier migration pass.
+        const iouIds = txns
           .filter(t =>
-            t.category === "Transfers" &&
+            (t.category === "Transfers" || t.category === "Other") &&
             /^transfer (?:from|to) /i.test(t.description) &&
             !/^revolut\*\*/i.test(t.description)
           )
           .map(t => t.id);
-        if (keywordMislabelled.length > 0) {
+        if (iouIds.length > 0) {
           supabase.from("transactions")
-            .update({ category: "Other" })
+            .update({ category: "IOUs & Splits" })
             .eq("user_id", uid)
-            .in("id", keywordMislabelled)
+            .in("id", iouIds)
             .then(() => {
               setTransactions(prev => prev.map(t =>
-                keywordMislabelled.includes(t.id) ? { ...t, category: "Other" } : t
+                iouIds.includes(t.id) ? { ...t, category: "IOUs & Splits" } : t
               ));
             });
         }
@@ -1311,14 +1314,15 @@ export default function App() {
                   <div className="card-title">Spending by category</div>
                   {budgets.filter((b) => b.name !== "Transfers").map((b) => {
                     const spent = bycat[b.name] || 0;
-                    const pct = Math.min(100, (spent / b.weekly) * 100);
-                    const color = pct > 100 ? "#e24b4a" : pct > 80 ? "#ba7517" : b.color;
+                    if (!b.weekly && !spent) return null;
+                    const pct = b.weekly > 0 ? Math.min(100, (spent / b.weekly) * 100) : 0;
+                    const color = b.weekly > 0 ? (pct > 100 ? "#e24b4a" : pct > 80 ? "#ba7517" : b.color) : b.color;
                     return (
                       <div className="budget-row" key={b.name}>
                         <div className="budget-label">{b.icon}<span>{b.name}</span></div>
-                        <div className="progress-wrap"><div className="progress-bar" style={{ width: pct + "%", background: color }} /></div>
+                        <div className="progress-wrap">{b.weekly > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
                         <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
-                        <div className="budget-limit">/ €{b.weekly}</div>
+                        <div className="budget-limit">{b.weekly > 0 ? `/ €${b.weekly}` : ""}</div>
                       </div>
                     );
                   })}
@@ -1521,7 +1525,7 @@ export default function App() {
         {tab === "budget" && (
           <div className="card">
             <div className="card-title">Weekly budget limits</div>
-            {budgets.map((b, i) => (
+            {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => (
               <div className="budget-row budget-edit-row" key={b.name}>
                 <div className="budget-label">{b.icon}<span>{b.name}</span></div>
                 <div />
