@@ -37,7 +37,7 @@ const CATEGORIES = [
     icon: I(<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>)},
   { name: "Utilities", color: "#639922", weekly: 0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"],
     icon: I(<><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>)},
-  { name: "Health", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist"],
+  { name: "Health / Personal Care", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist","haircut","barber","grooming","toiletries","salon","hairdresser","superdrug","beauty"],
     icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
   { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
     icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
@@ -733,7 +733,8 @@ export default function App() {
     ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }]) => {
       if (dbBudgets?.length) {
         setBudgets(CATEGORIES.map((c) => {
-          const db = dbBudgets.find((b) => b.name === c.name);
+          const db = dbBudgets.find((b) => b.name === c.name)
+            || (c.name === "Health / Personal Care" ? dbBudgets.find((b) => b.name === "Health") : null);
           return db ? { ...c, weekly: db.weekly } : c;
         }));
       }
@@ -751,6 +752,19 @@ export default function App() {
             .then(() => {
               setTransactions(prev => prev.map(t =>
                 fixIds.includes(t.id) ? { ...t, category: "Transfers" } : t
+              ));
+            });
+        }
+        // One-time migration: rename "Health" category to "Health / Personal Care"
+        const healthIds = txns.filter(t => t.category === "Health").map(t => t.id);
+        if (healthIds.length > 0) {
+          supabase.from("transactions")
+            .update({ category: "Health / Personal Care" })
+            .eq("user_id", uid)
+            .in("id", healthIds)
+            .then(() => {
+              setTransactions(prev => prev.map(t =>
+                healthIds.includes(t.id) ? { ...t, category: "Health / Personal Care" } : t
               ));
             });
         }
@@ -783,8 +797,8 @@ export default function App() {
     if (txnDateTo && t.date > new Date(txnDateTo + "T23:59:59")) return false;
     return true;
   });
-  const filteredSpend  = filteredTxns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
-  const filteredIncome = filteredTxns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const filteredSpend  = filteredTxns.filter(t => t.amount < 0 && t.category !== "Transfers").reduce((s, t) => s + Math.abs(t.amount), 0);
+  const filteredIncome = filteredTxns.filter(t => t.amount > 0 && t.category !== "Transfers").reduce((s, t) => s + t.amount, 0);
   const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
 
   const { start, end } = getWeekRange(weekOffset);
@@ -813,7 +827,7 @@ export default function App() {
   // Monthly view
   const monthTxns = transactions.filter((t) => t.date >= monthFrom && t.date <= monthTo);
   const monthSpendTxns = monthTxns.filter((t) => t.amount < 0 && t.category !== "Transfers");
-  const monthIncomeTxns = monthTxns.filter((t) => t.amount > 0);
+  const monthIncomeTxns = monthTxns.filter((t) => t.amount > 0 && t.category !== "Transfers");
   const totalMonthSpent = monthSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
   const totalMonthIncome = monthIncomeTxns.reduce((s, t) => s + t.amount, 0);
   const netSaved = totalMonthIncome - totalMonthSpent;
