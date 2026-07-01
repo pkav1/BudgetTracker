@@ -41,7 +41,7 @@ const CATEGORIES = [
     icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
   { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
     icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
-  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["transfer to", "transfer from", "revolut**"],
+  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["revolut**"],
     icon: I(<><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></>)},
   { name: "Other", color: "#898781", weekly: 30, keywords: [],
     icon: I(<><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></>)},
@@ -248,9 +248,12 @@ async function parseBOIPDF(file) {
   return txns;
 }
 
-// Strips numbers/punctuation and takes the first 3 words as a stable merchant key
+// Strips BOI POS/date prefix (e.g. "POSC02JUN", "POS01JUN") then normalises to
+// a stable 3-word key used for merchant rule matching.
 function extractMerchant(description) {
   return description
+    .trim()
+    .replace(/^[A-Z]*\d{1,2}(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+/i, "")
     .toLowerCase()
     .replace(/[^a-z\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -768,9 +771,51 @@ export default function App() {
               ));
             });
         }
+        // One-time migration: transactions tagged "Transfers" via the now-removed "transfer to/from"
+        // keywords (e.g. "Transfer from JOHN PATRICK TARPEY") are person payments, not own-account
+        // transfers — reclassify to "Other" so they count in totals correctly.
+        const keywordMislabelled = txns
+          .filter(t =>
+            t.category === "Transfers" &&
+            /^transfer (?:from|to) /i.test(t.description) &&
+            !/^revolut\*\*/i.test(t.description)
+          )
+          .map(t => t.id);
+        if (keywordMislabelled.length > 0) {
+          supabase.from("transactions")
+            .update({ category: "Other" })
+            .eq("user_id", uid)
+            .in("id", keywordMislabelled)
+            .then(() => {
+              setTransactions(prev => prev.map(t =>
+                keywordMislabelled.includes(t.id) ? { ...t, category: "Other" } : t
+              ));
+            });
+        }
       }
       if (dbSavings?.length) setSavings(dbSavings);
-      if (dbRules?.length) setMerchantRules(dbRules);
+      if (dbRules?.length) {
+        setMerchantRules(dbRules);
+        // One-time migration: strip POS date prefixes baked into saved merchant keys
+        // e.g. "posc jun sugar" (old format) → "sugar" (clean format)
+        const posPrefix = /^pos[a-z]?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+/i;
+        const toFixRules = dbRules.filter(r => posPrefix.test(r.merchant));
+        if (toFixRules.length > 0) {
+          (async () => {
+            for (const r of toFixRules) {
+              const clean = r.merchant.replace(posPrefix, "").trim();
+              const { error } = await supabase.from("merchant_rules")
+                .update({ merchant: clean }).eq("id", r.id).eq("user_id", uid);
+              if (error) {
+                // Unique constraint conflict — a clean version of this rule already exists; remove the corrupt duplicate
+                await supabase.from("merchant_rules").delete().eq("id", r.id).eq("user_id", uid);
+              }
+            }
+            const { data } = await supabase.from("merchant_rules").select("*").eq("user_id", uid).order("merchant");
+            if (data) setMerchantRules(data);
+          })();
+        }
+      }
       if (dbPlanner?.length) {
         const p = dbPlanner[0];
         setPlanner({
