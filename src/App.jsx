@@ -606,7 +606,24 @@ export default function App() {
   const [pinSetupNew, setPinSetupNew] = useState("");
   const [pinSetupConfirm, setPinSetupConfirm] = useState("");
   const [pinSetupError, setPinSetupError] = useState(null);
+  const [txnSearch, setTxnSearch] = useState("");
+  const [txnAccounts, setTxnAccounts] = useState([]);
+  const [txnCategories, setTxnCategories] = useState([]);
+  const [txnDateFrom, setTxnDateFrom] = useState("");
+  const [txnDateTo, setTxnDateTo] = useState("");
   const saveTimers = useRef({});
+
+  // ── Transaction search / filter ───────────────────────────────────────────
+
+  function toggleTxnAccount(a) {
+    setTxnAccounts(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
+  }
+  function toggleTxnCategory(c) {
+    setTxnCategories(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  }
+  function clearTxnFilters() {
+    setTxnSearch(""); setTxnAccounts([]); setTxnCategories([]); setTxnDateFrom(""); setTxnDateTo("");
+  }
 
   // ── PIN management ────────────────────────────────────────────────────────
 
@@ -642,7 +659,7 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
-    const names = { dashboard: "Dashboard", budget: "Budget", import: "Import", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
+    const names = { dashboard: "Dashboard", transactions: "Transactions", budget: "Budget", import: "Import", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
     document.title = `${names[tab] ?? tab} — Budget Tracker`;
   }, [tab]);
 
@@ -740,6 +757,19 @@ export default function App() {
   }, [session?.user?.id]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
+
+  // Transactions tab filter
+  const filteredTxns = transactions.filter(t => {
+    if (txnSearch && !t.description.toLowerCase().includes(txnSearch.toLowerCase())) return false;
+    if (txnAccounts.length > 0 && !txnAccounts.includes(t.account)) return false;
+    if (txnCategories.length > 0 && !txnCategories.includes(t.category)) return false;
+    if (txnDateFrom && t.date < new Date(txnDateFrom + "T00:00:00")) return false;
+    if (txnDateTo && t.date > new Date(txnDateTo + "T23:59:59")) return false;
+    return true;
+  });
+  const filteredSpend  = filteredTxns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+  const filteredIncome = filteredTxns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
 
   const { start, end } = getWeekRange(weekOffset);
   const weekTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.amount < 0);
@@ -1152,7 +1182,7 @@ export default function App() {
         <div className="header-inner">
           <span className="logo">💶 Budget</span>
           <nav className="tabs">
-            {["dashboard","budget","import","savings","investments","planner","settings"].map((t) => (
+            {["dashboard","transactions","budget","import","savings","investments","planner","settings"].map((t) => (
               <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -1303,6 +1333,111 @@ export default function App() {
               <div className="chart-wrap">
                 <BarChart labels={trendWeeks.map((w) => w.label)} datasets={trendDatasets} />
               </div>
+            </div>
+          </>
+        )}
+
+        {/* TRANSACTIONS */}
+        {tab === "transactions" && (
+          <>
+            {/* Filters card */}
+            <div className="card">
+              <input
+                type="search"
+                className="txn-search-input"
+                placeholder="Search by merchant or description…"
+                value={txnSearch}
+                onChange={e => setTxnSearch(e.target.value)}
+              />
+
+              {/* Account filter */}
+              <div className="filter-section">
+                <div className="filter-label">Account</div>
+                <div className="filter-chips">
+                  {["Revolut", "BOI"].map(a => (
+                    <button
+                      key={a}
+                      className={`filter-chip${txnAccounts.includes(a) ? " active" : ""}`}
+                      onClick={() => toggleTxnAccount(a)}
+                    >{a}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category filter */}
+              <div className="filter-section">
+                <div className="filter-label">Category</div>
+                <div className="filter-chips filter-chips-scroll">
+                  {CATEGORIES.map(c => {
+                    const on = txnCategories.includes(c.name);
+                    return (
+                      <button
+                        key={c.name}
+                        className={`filter-chip${on ? " active" : ""}`}
+                        style={on ? { background: c.color + "22", borderColor: c.color, color: c.color } : {}}
+                        onClick={() => toggleTxnCategory(c.name)}
+                      >
+                        <span className="filter-chip-dot" style={{ background: on ? c.color : "#b4b2a9" }} />
+                        {c.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Date range */}
+              <div className="filter-section">
+                <div className="filter-label">Date range</div>
+                <div className="import-date-range" style={{ alignItems: "center" }}>
+                  <div className="import-date-field">
+                    <label>From</label>
+                    <input type="date" className="import-date-input" value={txnDateFrom} onChange={e => setTxnDateFrom(e.target.value)} />
+                  </div>
+                  <div className="import-date-field">
+                    <label>To</label>
+                    <input type="date" className="import-date-input" value={txnDateTo} onChange={e => setTxnDateTo(e.target.value)} />
+                  </div>
+                  {(txnDateFrom || txnDateTo) && (
+                    <button className="filter-clear-btn" style={{ alignSelf: "flex-end", marginBottom: 2 }} onClick={() => { setTxnDateFrom(""); setTxnDateTo(""); }}>
+                      Clear dates
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {hasActiveTxnFilters && (
+                <button className="filter-clear-btn" style={{ marginTop: 4 }} onClick={clearTxnFilters}>
+                  Clear all filters
+                </button>
+              )}
+            </div>
+
+            {/* Results card */}
+            <div className="card">
+              {/* Summary row */}
+              <div className="filter-summary">
+                <span className="filter-count">
+                  {filteredTxns.length} transaction{filteredTxns.length !== 1 ? "s" : ""}
+                </span>
+                <div className="filter-totals">
+                  {filteredIncome > 0 && (
+                    <span className="filter-total in">+€{filteredIncome.toFixed(2)}</span>
+                  )}
+                  {filteredSpend > 0 && (
+                    <span className="filter-total out">−€{filteredSpend.toFixed(2)}</span>
+                  )}
+                </div>
+              </div>
+
+              {filteredTxns.length === 0 ? (
+                <EmptyState
+                  emoji="🔍"
+                  headline={transactions.length === 0 ? "No transactions yet" : "No matches"}
+                  sub={transactions.length === 0 ? "Import a statement to get started" : "Try adjusting your search or filters"}
+                />
+              ) : (
+                filteredTxns.map(t => <TxnRow key={t.id} t={t} {...txnRowProps} />)
+              )}
             </div>
           </>
         )}

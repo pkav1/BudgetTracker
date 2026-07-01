@@ -898,6 +898,80 @@ body {
   .import-date-range { gap: 12px; }
 }
 
+/* ── Transaction search / filter ── */
+.txn-search-input {
+  width: 100%;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 0.5px solid #d3d1c7;
+  border-radius: 8px;
+  font-family: inherit;
+  background: #fafafa;
+  outline: none;
+  margin-bottom: 14px;
+  transition: border-color 0.15s;
+}
+.txn-search-input:focus { border-color: #2a78d6; }
+
+.filter-section { margin-bottom: 14px; }
+.filter-section:last-child { margin-bottom: 0; }
+.filter-label { font-size: 11px; font-weight: 600; color: #898781; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px; }
+
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chips-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 3px;
+}
+.filter-chips-scroll::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; font-size: 12px; font-family: inherit;
+  border: 0.5px solid #d3d1c7; border-radius: 20px;
+  background: none; color: #52514e; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.filter-chip:hover { border-color: #888780; color: #0b0b0b; }
+.filter-chip.active { background: #2a78d6; border-color: #2a78d6; color: #fff; }
+
+.filter-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: background 0.12s; }
+
+.filter-clear-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 12px; color: #898781; font-family: inherit;
+  padding: 0; text-decoration: underline;
+}
+.filter-clear-btn:hover { color: #52514e; }
+
+.filter-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 10px; margin-bottom: 4px;
+  border-bottom: 0.5px solid #f1efe8;
+}
+.filter-count { font-size: 13px; color: #52514e; }
+.filter-totals { display: flex; gap: 10px; align-items: center; }
+.filter-total { font-size: 13px; font-weight: 500; }
+.filter-total.in { color: #3b6d11; }
+.filter-total.out { color: #0b0b0b; }
+
+/* Dark mode: filters */
+.dark .txn-search-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
+.dark .txn-search-input:focus { border-color: #2a78d6; }
+.dark .filter-label { color: #666666; }
+.dark .filter-chip { border-color: #2a2a2a; color: #a0a0a0; }
+.dark .filter-chip:hover { border-color: #444; color: #ffffff; }
+.dark .filter-chip.active { background: #2a78d6; border-color: #2a78d6; color: #fff; }
+.dark .filter-chip-dot { opacity: 0.8; }
+.dark .filter-clear-btn { color: #666666; }
+.dark .filter-clear-btn:hover { color: #a0a0a0; }
+.dark .filter-summary { border-bottom-color: #2a2a2a; }
+.dark .filter-count { color: #a0a0a0; }
+.dark .filter-total.in { color: #5a9e2f; }
+.dark .filter-total.out { color: #ffffff; }
+
 /* ── PIN lock screen ── */
 .pin-dots {
   display: flex;
