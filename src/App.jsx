@@ -91,6 +91,24 @@ function catForDesc(desc) {
   return "Other";
 }
 
+// ── PIN lock helpers ──────────────────────────────────────────────────────────
+// The PIN is hashed with a random salt via SHA-256 before storage.
+// The plaintext PIN never leaves the browser and is never sent anywhere.
+
+async function hashPin(pin, salt) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt + pin));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function getPinStore() {
+  try { return JSON.parse(localStorage.getItem("pin_store") || "null"); } catch { return null; }
+}
+function setPinStore(hash, salt) {
+  localStorage.setItem("pin_store", JSON.stringify({ hash, salt }));
+}
+function clearPinStore() {
+  localStorage.removeItem("pin_store");
+}
+
 // Deterministic ID so re-importing the same CSV skips existing rows rather than duplicating them.
 // Requires the transactions table's `id` column to be type TEXT.
 function hashStr(s) {
@@ -494,6 +512,65 @@ function DashboardSkeleton() {
   );
 }
 
+const PIN_MAX_ATTEMPTS = 5;
+
+function PinScreen({ onUnlock, onBypass }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(null);
+  const [attempts, setAttempts] = useState(0);
+
+  async function submit() {
+    const store = getPinStore();
+    if (!store) { onBypass(); return; }
+    const h = await hashPin(pin, store.salt);
+    if (h === store.hash) {
+      onUnlock();
+    } else {
+      const next = attempts + 1;
+      setAttempts(next);
+      setPin("");
+      if (next >= PIN_MAX_ATTEMPTS) {
+        onBypass(true); // true = was locked out, sign out
+      } else {
+        setError(`Incorrect PIN — ${PIN_MAX_ATTEMPTS - next} attempt${PIN_MAX_ATTEMPTS - next !== 1 ? "s" : ""} remaining`);
+      }
+    }
+  }
+
+  const filledDots = Math.max(pin.length, 4);
+
+  return (
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="auth-logo">🔒 Budget</div>
+        <div className="pin-dots">
+          {Array.from({ length: filledDots }, (_, i) => (
+            <div key={i} className={`pin-dot${i < pin.length ? " filled" : ""}`} />
+          ))}
+        </div>
+        <input
+          className="auth-input pin-input"
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder="Enter PIN"
+          value={pin}
+          autoFocus
+          onChange={(e) => { setPin(e.target.value.replace(/\D/g, "")); setError(null); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && pin.length >= 4) submit(); }}
+        />
+        {error && <div className="auth-error">{error}</div>}
+        <button className="auth-btn-primary" onClick={submit} disabled={pin.length < 4}>
+          Unlock
+        </button>
+        <button className="pin-bypass-btn" onClick={() => onBypass(false)}>
+          Use email &amp; password instead
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -523,7 +600,34 @@ export default function App() {
   });
   const [importAllDates, setImportAllDates] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [pinLocked, setPinLocked] = useState(false);
+  const [pinExists, setPinExists] = useState(() => !!getPinStore());
+  const [pinSetupMode, setPinSetupMode] = useState(null); // null | "set" | "change"
+  const [pinSetupNew, setPinSetupNew] = useState("");
+  const [pinSetupConfirm, setPinSetupConfirm] = useState("");
+  const [pinSetupError, setPinSetupError] = useState(null);
   const saveTimers = useRef({});
+
+  // ── PIN management ────────────────────────────────────────────────────────
+
+  async function savePin() {
+    if (pinSetupNew.length < 4) { setPinSetupError("PIN must be at least 4 digits."); return; }
+    if (pinSetupNew !== pinSetupConfirm) { setPinSetupError("PINs don't match."); return; }
+    const salt = crypto.randomUUID();
+    const hash = await hashPin(pinSetupNew, salt);
+    setPinStore(hash, salt);
+    setPinExists(true);
+    setPinSetupMode(null);
+    setPinSetupNew("");
+    setPinSetupConfirm("");
+    setPinSetupError(null);
+  }
+
+  function removePin() {
+    clearPinStore();
+    setPinExists(false);
+    setPinSetupMode(null);
+  }
 
   function toggleDark() {
     setDarkMode((d) => {
@@ -572,12 +676,19 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (!session) setLoading(false);
+      if (!session) { setLoading(false); return; }
+      // Existing session: show PIN screen if one is configured
+      if (getPinStore()) setPinLocked(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (event === "SIGNED_IN" && getPinStore()) {
+        // Returning via fresh email/password login while a PIN is set — lock immediately
+        setPinLocked(true);
+      }
       if (event === "SIGNED_OUT") {
+        setPinLocked(false);
         setTransactions([]);
         setBudgets(CATEGORIES.map((c) => ({ ...c })));
         setSavings([]);
@@ -1015,6 +1126,23 @@ export default function App() {
   }
 
   if (!session) return <AuthScreen />;
+
+  if (pinLocked) {
+    return (
+      <PinScreen
+        onUnlock={() => setPinLocked(false)}
+        onBypass={async (lockedOut) => {
+          if (lockedOut) {
+            // Too many wrong attempts — sign out so they must re-authenticate properly
+            await supabase.auth.signOut();
+          } else {
+            // Voluntary bypass (forgot PIN, wants to use email & password to get in and fix it)
+            setPinLocked(false);
+          }
+        }}
+      />
+    );
+  }
 
   const txnRowProps = { pendingRule, onRecategorise: recategorise, onSaveRule: saveRule, onDismissRule: () => setPendingRule(null) };
 
@@ -1627,6 +1755,77 @@ export default function App() {
               </div>
               {pwResetMsg && (
                 <div className={`import-msg ${pwResetMsg.ok ? "ok" : "err"}`} style={{ marginTop: 8 }}>{pwResetMsg.text}</div>
+              )}
+            </div>
+
+            <div className="card">
+              <div className="card-title">PIN Lock</div>
+              {pinExists ? (
+                <>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">PIN is enabled</div>
+                      <div className="settings-hint">You'll be asked for your PIN when returning to the app</div>
+                    </div>
+                    <button className="settings-btn" onClick={() => { setPinSetupMode("change"); setPinSetupNew(""); setPinSetupConfirm(""); setPinSetupError(null); }}>
+                      Change
+                    </button>
+                  </div>
+                  <div className="settings-row">
+                    <div>
+                      <div className="settings-label">Remove PIN</div>
+                      <div className="settings-hint">Disables the lock screen — email and password only</div>
+                    </div>
+                    <button className="danger-btn" onClick={removePin}>Remove</button>
+                  </div>
+                </>
+              ) : (
+                <div className="settings-row">
+                  <div>
+                    <div className="settings-label">PIN lock</div>
+                    <div className="settings-hint">Set a 4–6 digit PIN to quickly unlock the app</div>
+                  </div>
+                  <button className="settings-btn" onClick={() => { setPinSetupMode("set"); setPinSetupNew(""); setPinSetupConfirm(""); setPinSetupError(null); }}>
+                    Set PIN
+                  </button>
+                </div>
+              )}
+              {pinSetupMode && (
+                <div className="pin-setup-form">
+                  <div className="pin-setup-row">
+                    <label className="pin-setup-label">New PIN</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="4–6 digits"
+                      className="pin-setup-input"
+                      value={pinSetupNew}
+                      onChange={(e) => { setPinSetupNew(e.target.value.replace(/\D/g, "")); setPinSetupError(null); }}
+                    />
+                  </div>
+                  <div className="pin-setup-row">
+                    <label className="pin-setup-label">Confirm PIN</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Repeat PIN"
+                      className="pin-setup-input"
+                      value={pinSetupConfirm}
+                      onChange={(e) => { setPinSetupConfirm(e.target.value.replace(/\D/g, "")); setPinSetupError(null); }}
+                    />
+                  </div>
+                  {pinSetupError && <div className="pin-setup-error">{pinSetupError}</div>}
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <button className="auth-btn-primary" style={{ flex: 1, padding: "7px" }} onClick={savePin}>
+                      Save PIN
+                    </button>
+                    <button className="auth-btn-secondary" style={{ flex: 1, padding: "7px" }} onClick={() => { setPinSetupMode(null); setPinSetupError(null); }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 

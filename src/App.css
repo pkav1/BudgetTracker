@@ -898,6 +898,86 @@ body {
   .import-date-range { gap: 12px; }
 }
 
+/* ── PIN lock screen ── */
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
+.pin-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid #d3d1c7;
+  background: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+.pin-dot.filled {
+  background: #2a78d6;
+  border-color: #2a78d6;
+}
+.pin-input {
+  text-align: center;
+  letter-spacing: 6px;
+  font-size: 18px;
+}
+.pin-bypass-btn {
+  background: none;
+  border: none;
+  color: #898781;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 4px 0;
+  text-align: center;
+  transition: color 0.15s;
+  margin-top: 2px;
+}
+.pin-bypass-btn:hover { color: #52514e; }
+
+/* ── PIN setup form in Settings ── */
+.pin-setup-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 0.5px solid #f1efe8;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pin-setup-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pin-setup-label {
+  font-size: 13px;
+  color: #52514e;
+  min-width: 80px;
+}
+.pin-setup-input {
+  flex: 1;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 0.5px solid #d3d1c7;
+  border-radius: 8px;
+  font-family: inherit;
+  background: #fafafa;
+  letter-spacing: 4px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.pin-setup-input:focus { border-color: #2a78d6; }
+.pin-setup-error {
+  font-size: 13px;
+  color: #a32d2d;
+  background: #fcebeb;
+  border: 0.5px solid #f5b8b8;
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+
 /* Dark mode: import date + account chips + drag-drop */
 .dark .upload-zone.drag-over { border-color: #2a78d6; background: #0f1f3d; }
 .dark .import-all-toggle { color: #a0a0a0; }
@@ -909,3 +989,12 @@ body {
 .dark .import-date-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
 .dark .import-date-input:focus { border-color: #2a78d6; }
 .dark .import-msg.info { background: #0f1f3d; color: #7eb3f5; }
+
+/* Dark mode: PIN */
+.dark .pin-dot { border-color: #2a2a2a; }
+.dark .pin-bypass-btn { color: #666666; }
+.dark .pin-bypass-btn:hover { color: #a0a0a0; }
+.dark .pin-setup-form { border-top-color: #2a2a2a; }
+.dark .pin-setup-label { color: #a0a0a0; }
+.dark .pin-setup-input { background: #222222; border-color: #2a2a2a; color: #ffffff; }
+.dark .pin-setup-input:focus { border-color: #2a78d6; }
