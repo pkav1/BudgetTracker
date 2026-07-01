@@ -659,7 +659,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    document.body.style.background = darkMode ? "#0f0f0f" : "";
+    document.body.style.background = darkMode ? "#0d1117" : "";
   }, [darkMode]);
 
   useEffect(() => {
@@ -1453,10 +1453,10 @@ export default function App() {
                       <button
                         key={c.name}
                         className={`filter-chip${on ? " active" : ""}`}
-                        style={on ? { background: c.color + "22", borderColor: c.color, color: c.color } : {}}
+                        style={on ? { background: c.color + "22", borderColor: c.color } : {}}
                         onClick={() => toggleTxnCategory(c.name)}
                       >
-                        <span className="filter-chip-dot" style={{ background: on ? c.color : "#b4b2a9" }} />
+                        <span className="filter-chip-dot" style={on ? { background: c.color } : {}} />
                         {c.name}
                       </button>
                     );
@@ -1751,7 +1751,7 @@ export default function App() {
                           <div key={p.ticker} className="inv-row">
                             <div className="inv-ticker">
                               <span className="inv-dot" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
-                              <span>{ticker}</span>
+                              <span className="inv-ticker-text">{ticker}</span>
                             </div>
                             <span className="inv-right inv-qty">{qty}</span>
                             <span className="inv-right inv-value">€{value.toFixed(2)}</span>
