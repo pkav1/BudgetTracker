@@ -17,12 +17,15 @@ export default async function handler(req, res) {
     if (!endpoint) return res.status(400).json({ error: "Missing ?endpoint= parameter" });
 
     const apiKey = process.env.TRADING212_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "TRADING212_API_KEY is not configured on this deployment" });
+    const apiSecret = process.env.TRADING212_API_SECRET;
+    if (!apiKey || !apiSecret) return res.status(500).json({ error: "TRADING212_API_KEY or TRADING212_API_SECRET is not configured on this deployment" });
+
+    const authHeader = `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}`;
 
     let upstream;
     try {
       upstream = await fetch(`https://live.trading212.com/api/v0/${endpoint}`, {
-        headers: { Authorization: apiKey },
+        headers: { Authorization: authHeader },
       });
     } catch (err) {
       return res.status(502).json({ error: "Failed to reach Trading 212", detail: err.message });
