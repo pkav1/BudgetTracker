@@ -396,7 +396,7 @@ const PLANNER_DEFAULT = {
   savings_dates: {},
 };
 
-function BarChart({ labels, datasets, yPrefix = "€" }) {
+function BarChart({ labels, datasets, yPrefix = "€", tickColor = "#6b7280", gridColor = "#e8ebee" }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
   useEffect(() => {
@@ -409,13 +409,13 @@ function BarChart({ labels, datasets, yPrefix = "€" }) {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#898781", font: { size: 11 }, maxRotation: 30 } },
-          y: { grid: { color: "#e1e0d9" }, ticks: { color: "#898781", callback: (v) => yPrefix + v } },
+          x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11 }, maxRotation: 30 } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: (v) => yPrefix + v } },
         },
       },
     });
     return () => chartRef.current?.destroy();
-  }, [labels, datasets]);
+  }, [labels, datasets, tickColor, gridColor]);
   return <canvas ref={ref} />;
 }
 
@@ -516,7 +516,11 @@ function AuthScreen() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="auth-logo">💶 Budget</div>
+        <div className="auth-logo">
+          <span className="auth-logo-mark">B</span>
+          <span className="auth-logo-wordmark">Budget</span>
+        </div>
+        <p className="auth-tagline">Track your spending.</p>
         <input
           className="auth-input" type="email" placeholder="Email"
           value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey}
@@ -659,7 +663,10 @@ function PinScreen({ onUnlock, onBypass }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="auth-logo">🔒 Budget</div>
+        <div className="auth-logo">
+          <span className="auth-logo-mark">B</span>
+          <span className="auth-logo-wordmark">Budget</span>
+        </div>
         <div className="pin-dots">
           {Array.from({ length: filledDots }, (_, i) => (
             <div key={i} className={`pin-dot${i < pin.length ? " filled" : ""}`} />
@@ -1084,51 +1091,43 @@ export default function App() {
     });
     const skipped = inRange.length - toInsert.length;
 
-    if (toInsert.length === 0) {
-      setImportMsg({ ok: true, text: `All ${inRange.length} transactions already imported${skipped > 0 ? ` — ${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped` : ""}.` });
-      return;
-    }
-
-    // Preserve existing manual recategorisations for rows that already exist in DB
-    const ids = toInsert.map(t => t.id);
-    const { data: existingCats } = await supabase
-      .from("transactions").select("id, category").in("id", ids).eq("user_id", uid);
-    const savedCats = Object.fromEntries((existingCats || []).map(t => [t.id, t.category]));
-
-    const rows = toInsert.map(t => ({
-      id: t.id,
-      date: t.date.toISOString(),
-      description: t.description,
-      amount: t.amount,
-      category: savedCats[t.id] ?? t.category,
-      account: accountLabel,
-      balance: t.balance ?? null,
-      user_id: uid,
-    }));
-
-    const { error: upsertError } = await supabase.from("transactions").upsert(rows, { onConflict: "id" });
-    if (upsertError) {
-      setImportMsg({ ok: false, text: `Import failed: ${upsertError.message}` });
-      return;
-    }
-
-    const { data: dbTxns } = await supabase
-      .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
-    if (dbTxns) setTransactions(dbTxns.map(t => ({ ...t, date: new Date(t.date) })));
-
-    // Apply vault deposits only for non-duplicate transactions, grouped by vault name.
+    // === Vault processing ===
+    // Runs BEFORE the duplicate-skip early return so it fires even when all regular
+    // transactions are already in the DB. Uses a direct ID lookup instead of toInsert
+    // so vault transactions outside the selected date range are still processed.
     let vaultNote = "";
     if (vaultDeposits?.length > 0) {
-      const insertedIds = new Set(toInsert.map(t => t.id));
-      const pending = vaultDeposits.filter(d => insertedIds.has(d.txnId));
-      if (pending.length > 0) {
+      const vaultTxnIds = [...new Set(vaultDeposits.map(d => d.txnId))];
+
+      // Which vault transactions are already in the DB? (deterministic IDs, no date filter)
+      const { data: existingVaultTxns } = await supabase
+        .from("transactions").select("id").in("id", vaultTxnIds).eq("user_id", uid);
+      const alreadyDbIds = new Set((existingVaultTxns || []).map(t => t.id));
+
+      const newDeposits = vaultDeposits.filter(d => !alreadyDbIds.has(d.txnId));
+
+      if (newDeposits.length > 0) {
+        // Insert vault transactions that aren't in the DB yet.
+        // These may be outside the user's chosen date range, but we always want them recorded.
+        const newVaultTxnIds = new Set(newDeposits.map(d => d.txnId));
+        const vaultTxnRows = parsed
+          .filter(t => newVaultTxnIds.has(t.id))
+          .map(t => ({
+            id: t.id, date: t.date.toISOString(), description: t.description,
+            amount: t.amount, category: t.category, account: accountLabel,
+            balance: t.balance ?? null, user_id: uid,
+          }));
+        if (vaultTxnRows.length > 0) {
+          await supabase.from("transactions").upsert(vaultTxnRows, { onConflict: "id" });
+        }
+
         const byVault = {};
-        for (const d of pending) byVault[d.vaultName] = (byVault[d.vaultName] || 0) + d.amount;
+        for (const d of newDeposits) byVault[d.vaultName] = (byVault[d.vaultName] || 0) + d.amount;
 
         const importDate = new Date().toISOString().slice(0, 10);
         const updatedMeta = { ...JSON.parse(localStorage.getItem("revolut_vaults") || "{}") };
         const vaultNotes = [];
-        let localSavings = savings; // local snapshot updated as vaults are created in this run
+        let localSavings = savings;
 
         for (const [vaultName, total] of Object.entries(byVault)) {
           const depositTotal = parseFloat(total.toFixed(2));
@@ -1163,6 +1162,38 @@ export default function App() {
         }
       }
     }
+
+    if (toInsert.length === 0) {
+      setImportMsg({ ok: true, text: `All ${inRange.length} transactions already imported${skipped > 0 ? ` — ${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped` : ""}${vaultNote}.` });
+      return;
+    }
+
+    // Preserve existing manual recategorisations for rows that already exist in DB
+    const ids = toInsert.map(t => t.id);
+    const { data: existingCats } = await supabase
+      .from("transactions").select("id, category").in("id", ids).eq("user_id", uid);
+    const savedCats = Object.fromEntries((existingCats || []).map(t => [t.id, t.category]));
+
+    const rows = toInsert.map(t => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      description: t.description,
+      amount: t.amount,
+      category: savedCats[t.id] ?? t.category,
+      account: accountLabel,
+      balance: t.balance ?? null,
+      user_id: uid,
+    }));
+
+    const { error: upsertError } = await supabase.from("transactions").upsert(rows, { onConflict: "id" });
+    if (upsertError) {
+      setImportMsg({ ok: false, text: `Import failed: ${upsertError.message}` });
+      return;
+    }
+
+    const { data: dbTxns } = await supabase
+      .from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false });
+    if (dbTxns) setTransactions(dbTxns.map(t => ({ ...t, date: new Date(t.date) })));
 
     const dupNote = skipped > 0 ? ` (${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped)` : "";
     setImportMsg({ ok: true, text: `${toInsert.length} transaction${toInsert.length !== 1 ? "s" : ""} imported${dupNote}${vaultNote}.` });
@@ -1353,8 +1384,8 @@ export default function App() {
   ] : [];
 
   const savingsDatasets = [
-    { label: "Balance", data: savings.map((v) => v.balance), backgroundColor: "#2a78d6cc", borderRadius: 4, borderSkipped: false },
-    { label: "Target", data: savings.map((v) => v.target), backgroundColor: "#2a78d622", borderRadius: 4, borderSkipped: false },
+    { label: "Balance", data: savings.map((v) => v.balance), backgroundColor: darkMode ? "#3b82f6cc" : "#2563ebcc", borderRadius: 6, borderSkipped: false },
+    { label: "Target", data: savings.map((v) => v.target), backgroundColor: darkMode ? "#3b82f622" : "#2563eb22", borderRadius: 6, borderSkipped: false },
   ];
 
   // ── Portfolio derived ──────────────────────────────────────────────────────
@@ -1832,7 +1863,7 @@ export default function App() {
                 <EmptyState emoji="📭" headline="Nothing here yet" sub="Add a vault below to start tracking your savings" />
               )}
               {savings.map((v) => {
-                const pct = Math.min(100, (v.balance / v.target) * 100);
+                const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : 0;
                 const autoMeta = revVaultMeta[v.id];
                 return (
                   <div className="savings-row" key={v.id}>
@@ -1847,21 +1878,27 @@ export default function App() {
                       )}
                     </div>
                     <div className="savings-controls">
-                      <span className="savings-prefix">€</span>
-                      <input
-                        type="number" min="0" step="50" value={v.balance}
-                        className="savings-input"
-                        onChange={(e) => {
-                          const uid = session.user.id;
-                          const val = parseFloat(e.target.value) || 0;
-                          setSavings((prev) => prev.map((s) => s.id === v.id ? { ...s, balance: val } : s));
-                          debounceSave(`savings-${v.id}`, () => {
-                            supabase.from("savings").update({ balance: val }).eq("id", v.id).eq("user_id", uid);
-                          });
-                        }}
-                      />
+                      {autoMeta ? (
+                        <span className="savings-balance-static">€{v.balance.toFixed(2)}</span>
+                      ) : (
+                        <>
+                          <span className="savings-prefix">€</span>
+                          <input
+                            type="number" min="0" step="50" value={v.balance}
+                            className="savings-input"
+                            onChange={(e) => {
+                              const uid = session.user.id;
+                              const val = parseFloat(e.target.value) || 0;
+                              setSavings((prev) => prev.map((s) => s.id === v.id ? { ...s, balance: val } : s));
+                              debounceSave(`savings-${v.id}`, () => {
+                                supabase.from("savings").update({ balance: val }).eq("id", v.id).eq("user_id", uid);
+                              });
+                            }}
+                          />
+                          <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
+                        </>
+                      )}
                       <span className={`badge ${pct >= 100 ? "badge-green" : pct >= 50 ? "badge-warn" : "badge-red"}`}>{pct.toFixed(0)}%</span>
-                      <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
                     </div>
                     {autoMeta && (
                       <div className="vault-auto-note">Balance overwritten on next Revolut import</div>
@@ -1869,12 +1906,16 @@ export default function App() {
                   </div>
                 );
               })}
-              <button className="add-btn" onClick={addVault}>+ Add vault</button>
             </div>
             <div className="card">
               <div className="card-title">Savings vs targets</div>
               <div className="chart-wrap">
-                <BarChart labels={savings.map((v) => v.name)} datasets={savingsDatasets} />
+                <BarChart
+                  labels={savings.map((v) => v.name)}
+                  datasets={savingsDatasets}
+                  tickColor={darkMode ? "#8b949e" : "#6b7280"}
+                  gridColor={darkMode ? "#21262d" : "#e8ebee"}
+                />
               </div>
             </div>
           </>

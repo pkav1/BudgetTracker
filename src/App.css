@@ -290,7 +290,7 @@ body {
 .savings-row:last-child { border-bottom: none; }
 .savings-info { flex: 1; min-width: 0; }
 .savings-name-row { display: flex; align-items: center; gap: 6px; }
-.savings-name { font-size: 13px; color: var(--text-1); }
+.savings-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
 .savings-target { font-size: 11px; color: var(--text-2); margin-top: 2px; }
 .vault-sync-badge {
   font-size: 10px; font-weight: 700; letter-spacing: 0.2px;
@@ -310,6 +310,10 @@ body {
   background: var(--surface-2); color: var(--text-1);
 }
 .savings-input:focus { outline: none; border-color: var(--accent); }
+.savings-balance-static {
+  font-size: 15px; font-weight: 600; color: var(--text-1);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.2px;
+}
 
 .badge {
   display: inline-block; padding: 2px 8px; border-radius: 20px;
@@ -405,27 +409,53 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  background: linear-gradient(160deg, var(--bg) 55%, var(--accent-bg) 100%);
   padding: 1.25rem;
 }
 .auth-card {
   background: var(--surface);
-  border-radius: 18px;
-  padding: 2.25rem 2rem;
+  border-radius: 20px;
+  padding: 2.5rem 2.25rem 2rem;
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   box-shadow: var(--shadow-md);
 }
 .auth-logo {
-  font-size: 20px;
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-bottom: 2px;
+}
+.auth-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 9px;
+  font-size: 17px;
+  font-weight: 800;
   letter-spacing: -0.5px;
-  text-align: center;
-  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.auth-logo-wordmark {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
   color: var(--text-1);
+}
+.auth-tagline {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-3);
+  margin: -4px 0 4px;
+  letter-spacing: 0.1px;
 }
 .auth-input {
   width: 100%;
