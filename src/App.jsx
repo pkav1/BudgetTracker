@@ -1037,6 +1037,22 @@ export default function App() {
   const remaining = totalBudget - totalSpent;
   const totalSavings = savings.reduce((s, v) => s + v.balance, 0);
 
+  // Tile-specific derived values — current week always (not affected by weekOffset nav)
+  const { start: cwStart, end: cwEnd } = getWeekRange(0);
+  const cwSpendTxns = transactions.filter(t => t.date >= cwStart && t.date <= cwEnd && t.amount < 0 && t.category !== "Transfers");
+  const cwTotalSpent = cwSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const cwBudgetPct = totalBudget > 0 ? (cwTotalSpent / totalBudget) * 100 : null;
+  const totalSavingsTarget = savings.reduce((s, v) => s + (v.target || 0), 0);
+  const savingsPct = totalSavingsTarget > 0 ? Math.min(100, (totalSavings / totalSavingsTarget) * 100) : null;
+  const nextMilestone = savings
+    .map(v => {
+      const ym = planner.savings_dates?.[v.id];
+      const months = monthsUntil(ym);
+      return { name: v.name, yearMonth: ym, months, needed: Math.max(0, (v.target || 0) - v.balance) };
+    })
+    .filter(m => m.yearMonth && m.months !== null && m.months >= 0)
+    .sort((a, b) => a.months - b.months)[0] ?? null;
+
   const bycat = {};
   budgets.filter((b) => b.name !== "Transfers").forEach((b) => (bycat[b.name] = 0));
   weekSpendTxns.forEach((t) => { bycat[t.category] = (bycat[t.category] || 0) + Math.abs(t.amount); });
@@ -1567,6 +1583,73 @@ export default function App() {
         {/* DASHBOARD */}
         {tab === "dashboard" && (
           <>
+            {/* ── Overview tiles ── */}
+            <div className="snap-tiles">
+
+              <button className="snap-tile" onClick={() => setTab("budget")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">◑</span>Budget</div>
+                {totalBudget > 0 ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: cwBudgetPct >= 100 ? "var(--red)" : cwBudgetPct >= 80 ? "var(--amber)" : "var(--green)" }}>
+                      €{cwTotalSpent.toFixed(0)}
+                    </div>
+                    <div className="snap-tile-sub">{cwBudgetPct.toFixed(0)}% · €{totalBudget}/wk budget</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
+                    <div className="snap-tile-sub">No budgets set</div>
+                  </>
+                )}
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("savings")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">⬡</span>Savings</div>
+                <div className="snap-tile-primary">€{totalSavings.toLocaleString("en-IE")}</div>
+                <div className="snap-tile-sub">
+                  {savingsPct !== null
+                    ? `${savingsPct.toFixed(0)}% of €${totalSavingsTarget.toLocaleString()} target`
+                    : "across all vaults"}
+                </div>
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("investments")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">↗</span>Portfolio</div>
+                {portfolio !== null ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: pfTotalPnL >= 0 ? "var(--green)" : "var(--red)" }}>
+                      {pfTotalPnL >= 0 ? "+" : ""}€{pfTotalPnL.toFixed(2)}
+                    </div>
+                    <div className="snap-tile-sub">{pfPnLPct >= 0 ? "+" : ""}{pfPnLPct.toFixed(2)}% return</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
+                    <div className="snap-tile-sub">Open to load</div>
+                  </>
+                )}
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("planner")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">▦</span>Planner</div>
+                {nextMilestone ? (
+                  <>
+                    <div className="snap-tile-primary">{nextMilestone.name}</div>
+                    <div className="snap-tile-sub">
+                      {nextMilestone.needed > 0 ? `€${nextMilestone.needed.toFixed(0)} to go · ` : "on track · "}
+                      {nextMilestone.yearMonth}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)" }}>No upcoming goals</div>
+                    <div className="snap-tile-sub">Set a target date in Planner</div>
+                  </>
+                )}
+              </button>
+
+            </div>
+
             <div className="week-nav">
               <button className="nav-btn" onClick={() => setWeekOffset((w) => viewMode === "monthly" ? w - 4 : w - 1)}>‹</button>
               <span className="week-label">{viewMode === "monthly" ? monthLabel : fmtWeekLabel(weekOffset)}</span>

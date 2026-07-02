@@ -51,7 +51,7 @@ body {
   min-height: 100vh;
 }
 
-.app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); }
+.app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
 .sidebar {
@@ -182,11 +182,62 @@ body {
 
 /* ── Main ───────────────────────────────────────────────────────────────────── */
 .main {
-  margin-left: 220px;
   max-width: 860px;
+  margin: 0 auto;
   padding: 1.5rem 1.25rem 4rem;
   width: 100%;
   flex: 1;
+}
+
+/* ── Snap tiles (dashboard overview strip) ───────────────────────────────────── */
+.snap-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.snap-tile {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 14px 16px 16px;
+  box-shadow: var(--shadow);
+  border: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s;
+  min-height: 90px;
+}
+.snap-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.snap-tile-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.snap-tile-icon { font-size: 11px; line-height: 1; }
+.snap-tile-primary {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-1);
+  line-height: 1.15;
+}
+.snap-tile-sub {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Week nav ───────────────────────────────────────────────────────────────── */
@@ -1049,7 +1100,10 @@ body {
   .bottom-nav-item.active { color: var(--accent); background: var(--accent-bg); }
   .bottom-nav-icon { font-size: 18px; line-height: 1; }
 
-  .main { margin-left: 0; max-width: 100%; padding: 1.25rem 1rem 5rem; }
+  .app  { padding-left: 0; }
+  .main { max-width: 100%; margin: 0; padding: 1.25rem 1rem 5rem; }
+  .snap-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .snap-tile-primary { font-size: 17px; }
 
   .metric-row { grid-template-columns: 1fr 1fr; gap: 8px; }
   .metric-value { font-size: 22px; letter-spacing: -0.8px; }
