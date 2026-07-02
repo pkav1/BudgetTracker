@@ -240,6 +240,49 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ── Net worth hero ─────────────────────────────────────────────────────────── */
+.networth-hero {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.networth-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--text-3);
+}
+.networth-headline {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px;
+  margin-top: 10px;
+}
+.networth-total {
+  font-size: 40px; font-weight: 700; letter-spacing: -1.5px;
+  color: var(--text-1); line-height: 1; font-variant-numeric: tabular-nums;
+}
+.networth-trend { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.networth-trend.up { color: var(--green); }
+.networth-trend.down { color: var(--red); }
+.networth-components {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  margin-top: 18px;
+}
+.networth-comp-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.7px; color: var(--text-3); margin-bottom: 4px;
+}
+.networth-comp-val {
+  font-size: 17px; font-weight: 700; color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+.networth-divider { height: 1px; background: var(--border-light); margin: 18px 0; }
+.networth-chart-slot { position: relative; height: 150px; }
+.networth-empty {
+  min-height: 150px; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 0 1rem;
+  font-size: 13px; color: var(--text-2); line-height: 1.5;
+}
+
 /* ── Week nav ───────────────────────────────────────────────────────────────── */
 .week-nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
 .week-label { flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: var(--text-1); }
@@ -1181,6 +1224,8 @@ body {
   .snap-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .snap-tile { padding: 14px 14px 16px; min-height: 96px; }
   .snap-tile-primary { font-size: 22px; letter-spacing: -0.5px; }
+  .networth-hero { padding: 1.25rem; }
+  .networth-total { font-size: 32px; letter-spacing: -1px; }
   .metric-row-2 { grid-template-columns: repeat(2, 1fr); }
 
   .metric-row { grid-template-columns: 1fr 1fr; gap: 8px; }

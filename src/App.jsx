@@ -778,6 +778,8 @@ export default function App() {
   const [portfolio, setPortfolio] = useState(null);   // null=never fetched, []=empty, [{…}]=loaded
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState(null);
+  const [netWorthSnapshots, setNetWorthSnapshots] = useState([]);
+  const snapshotSavedRef = useRef(false);
   const [merchantRules, setMerchantRules] = useState([]);
   const [pendingRule, setPendingRule] = useState(null);
   const [importAccount, setImportAccount] = useState("revolut");
@@ -922,6 +924,7 @@ export default function App() {
   useEffect(() => {
     if (!session?.user?.id) return;
     const uid = session.user.id;
+    snapshotSavedRef.current = false;
     setLoading(true);
     Promise.all([
       supabase.from("budgets").select("*").eq("user_id", uid),
@@ -929,7 +932,8 @@ export default function App() {
       supabase.from("savings").select("*").eq("user_id", uid),
       supabase.from("merchant_rules").select("*").eq("user_id", uid).order("merchant"),
       supabase.from("planner").select("*").eq("user_id", uid).limit(1),
-    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }]) => {
+      supabase.from("net_worth_snapshots").select("*").eq("user_id", uid).order("date", { ascending: true }),
+    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }, { data: dbSnapshots }]) => {
       if (dbBudgets?.length) {
         setBudgets(CATEGORIES.map((c) => {
           const db = dbBudgets.find((b) => b.name === c.name)
@@ -1042,6 +1046,7 @@ export default function App() {
           savings_dates: p.savings_dates ?? {},
         });
       }
+      setNetWorthSnapshots(dbSnapshots ?? []);
       setLoading(false);
     });
   }, [session?.user?.id]);
@@ -1513,6 +1518,60 @@ export default function App() {
   const pfTotalPnL      = sortedPortfolio.reduce((s, p) => s + (p.ppl ?? 0), 0);
   const pfPnLPct        = pfTotalInvested > 0 ? (pfTotalPnL / pfTotalInvested) * 100 : 0;
 
+  // ── Net worth derived ──────────────────────────────────────────────────────
+
+  // Most recent bank balance we hold. BOI PDFs / single-account Revolut CSVs carry a
+  // running balance; consolidated Revolut CSV rows import with balance = null. null = none yet.
+  const latestBalance = (() => {
+    let bal = null, when = -Infinity;
+    for (const t of transactions) {
+      if (t.balance != null && t.date instanceof Date && t.date.getTime() > when) {
+        when = t.date.getTime();
+        bal = t.balance;
+      }
+    }
+    return bal;
+  })();
+  const netWorthTotal = (latestBalance ?? 0) + totalSavings + pfTotalValue;
+
+  const nwSorted = [...netWorthSnapshots].sort((a, b) =>
+    String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0
+  );
+  // Trend vs the earliest snapshot in the current calendar month; null if none to compare against.
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const monthPrefix = todayStr.slice(0, 7);
+  const nwMonthStart = nwSorted.find(s => String(s.date).slice(0, 7) === monthPrefix);
+  const nwTrend = nwMonthStart ? netWorthTotal - Number(nwMonthStart.total) : null;
+
+  // Auto-save one snapshot per calendar day, once the live totals (incl. portfolio) are ready.
+  useEffect(() => {
+    if (!session?.user?.id || loading || snapshotSavedRef.current) return;
+    // Wait until the portfolio has actually resolved so investments aren't recorded as €0.
+    if (portfolio === null && !portfolioError) return;
+    if (netWorthSnapshots.some(s => String(s.date).slice(0, 10) === todayStr)) {
+      snapshotSavedRef.current = true;
+      return;
+    }
+    snapshotSavedRef.current = true;
+    const uid = session.user.id;
+    supabase
+      .from("net_worth_snapshots")
+      .insert({
+        date: todayStr,
+        account_balance: latestBalance ?? 0,
+        savings_total: totalSavings,
+        investments_value: pfTotalValue,
+        total: netWorthTotal,
+        user_id: uid,
+      })
+      .select()
+      .then(({ data, error }) => {
+        if (error) snapshotSavedRef.current = false;              // allow a retry next load
+        else if (data?.length) setNetWorthSnapshots(prev => [...prev, ...data]);
+      });
+  }, [session?.user?.id, loading, portfolio, portfolioError, netWorthSnapshots,
+      latestBalance, totalSavings, pfTotalValue, netWorthTotal, todayStr]);
+
   // ── Planner derived ────────────────────────────────────────────────────────
 
   const investEur = planner.investment_mode === "pct"
@@ -1612,6 +1671,57 @@ export default function App() {
         {/* DASHBOARD */}
         {tab === "dashboard" && (
           <>
+            {/* ── Net worth hero ── */}
+            <div className="networth-hero">
+              <div className="networth-label">Net Worth</div>
+              <div className="networth-headline">
+                <span className="networth-total">
+                  €{netWorthTotal.toLocaleString("en-IE", { maximumFractionDigits: 0 })}
+                </span>
+                {nwTrend !== null && (
+                  <span className={`networth-trend ${nwTrend >= 0 ? "up" : "down"}`}>
+                    {nwTrend >= 0 ? "▲" : "▼"} {nwTrend >= 0 ? "+" : "−"}€{Math.abs(nwTrend).toLocaleString("en-IE", { maximumFractionDigits: 0 })} this month
+                  </span>
+                )}
+              </div>
+              <div className="networth-components">
+                <div className="networth-comp">
+                  <div className="networth-comp-label">Account</div>
+                  <div className="networth-comp-val">
+                    {latestBalance != null ? `€${latestBalance.toLocaleString("en-IE", { maximumFractionDigits: 0 })}` : "—"}
+                  </div>
+                </div>
+                <div className="networth-comp">
+                  <div className="networth-comp-label">Savings</div>
+                  <div className="networth-comp-val">€{totalSavings.toLocaleString("en-IE", { maximumFractionDigits: 0 })}</div>
+                </div>
+                <div className="networth-comp">
+                  <div className="networth-comp-label">Investments</div>
+                  <div className="networth-comp-val">
+                    {portfolio === null && portfolioLoading ? "…" : `€${pfTotalValue.toLocaleString("en-IE", { maximumFractionDigits: 0 })}`}
+                  </div>
+                </div>
+              </div>
+              <div className="networth-divider" />
+              {nwSorted.length >= 3 ? (
+                <div className="networth-chart-slot">
+                  <LineChart
+                    labels={nwSorted.map(s => {
+                      const dt = new Date(String(s.date).slice(0, 10) + "T12:00:00");
+                      return `${dt.getDate()} ${dt.toLocaleString("en-IE", { month: "short" })}`;
+                    })}
+                    data={nwSorted.map(s => Number(s.total))}
+                  />
+                </div>
+              ) : (
+                <div className="networth-empty">
+                  {nwSorted.length <= 1
+                    ? "📈 Net worth tracking starts today — check back in a few days to see your trend."
+                    : "Building your history — your trend line fills in over the next few days."}
+                </div>
+              )}
+            </div>
+
             {/* ── Overview tiles ── */}
             <div className="snap-tiles">
 
