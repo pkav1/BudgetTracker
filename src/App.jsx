@@ -576,6 +576,17 @@ function AuthScreen() {
     setBusy(false);
   }
 
+  async function handleReset() {
+    if (!email) { setError("Enter your email above first, then tap Forgot."); return; }
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) setError(error.message);
+    else setInfo(`Password reset link sent to ${email}.`);
+    setBusy(false);
+  }
+
   function onKey(e) {
     if (e.key === "Enter") handleLogin();
   }
@@ -583,23 +594,42 @@ function AuthScreen() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="auth-logo">
-          <span className="auth-logo-mark">B</span>
-          <span className="auth-logo-wordmark">Budget</span>
+        <div className="auth-brand">
+          <span className="auth-mark" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+              <path d="M6 5 V22 H24" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+              <path d="M8.5 18.5 L13 13 L17 15.5 L23 7.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M23 7.5 H18.7 M23 7.5 V11.8" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h1 className="auth-wordmark">Ledger</h1>
+          <p className="auth-tagline">See everything you own, in one view</p>
         </div>
-        <p className="auth-tagline">Track your spending.</p>
-        <input
-          className="auth-input" type="email" placeholder="Email"
-          value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey}
-          autoComplete="email"
-        />
-        <input
-          className="auth-input" type="password" placeholder="Password"
-          value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={onKey}
-          autoComplete="current-password"
-        />
+
+        <div className="auth-field">
+          <label className="auth-label" htmlFor="auth-email">Email</label>
+          <input
+            id="auth-email" className="auth-input" type="email" placeholder="you@email.com"
+            value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey}
+            autoComplete="email"
+          />
+        </div>
+
+        <div className="auth-field">
+          <div className="auth-label-row">
+            <label className="auth-label" htmlFor="auth-password">Password</label>
+            <button type="button" className="auth-forgot" onClick={handleReset} disabled={busy}>Forgot?</button>
+          </div>
+          <input
+            id="auth-password" className="auth-input" type="password" placeholder="••••••••"
+            value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={onKey}
+            autoComplete="current-password"
+          />
+        </div>
+
         {error && <div className="auth-error">{error}</div>}
         {info && <div className="auth-info">{info}</div>}
+
         <div className="auth-actions">
           <button className="auth-btn-primary" onClick={handleLogin} disabled={busy}>Log in</button>
           <button className="auth-btn-secondary" onClick={handleSignUp} disabled={busy}>Sign up</button>
