@@ -1105,6 +1105,7 @@ export default function App() {
       const alreadyDbIds = new Set((existingVaultTxns || []).map(t => t.id));
 
       const newDeposits = vaultDeposits.filter(d => !alreadyDbIds.has(d.txnId));
+      const importDate = new Date().toISOString().slice(0, 10);
 
       if (newDeposits.length > 0) {
         // Insert vault transactions that aren't in the DB yet.
@@ -1123,9 +1124,6 @@ export default function App() {
 
         const byVault = {};
         for (const d of newDeposits) byVault[d.vaultName] = (byVault[d.vaultName] || 0) + d.amount;
-
-        const importDate = new Date().toISOString().slice(0, 10);
-        const updatedMeta = { ...JSON.parse(localStorage.getItem("revolut_vaults") || "{}") };
         const vaultNotes = [];
         let localSavings = savings;
 
@@ -1150,16 +1148,32 @@ export default function App() {
             await supabase.from("savings").update({ balance: newBal }).eq("id", vault.id).eq("user_id", uid);
             setSavings(prev => prev.map(v => v.id === vault.id ? { ...v, balance: newBal } : v));
             localSavings = localSavings.map(v => v.id === vault.id ? { ...v, balance: newBal } : v);
-            updatedMeta[vault.id] = { source: "revolut", lastImported: importDate };
             vaultNotes.push(`+€${depositTotal.toFixed(2)} → ${vaultName}`);
           }
         }
 
         if (vaultNotes.length > 0) {
-          localStorage.setItem("revolut_vaults", JSON.stringify(updatedMeta));
-          setRevVaultMeta(updatedMeta);
           vaultNote = ` · ${vaultNotes.join(", ")}`;
         }
+      }
+
+      // Always refresh sync metadata for every vault that appears in this CSV — including
+      // on re-imports where all deposits are already in the DB. Without this, revVaultMeta
+      // stays empty if the file was previously imported before meta tracking was added, or
+      // if localStorage was cleared, and the sync badges / last-imported dates never appear.
+      const updatedMeta = { ...JSON.parse(localStorage.getItem("revolut_vaults") || "{}") };
+      const allVaultNames = [...new Set(vaultDeposits.map(d => d.vaultName))];
+      let metaChanged = false;
+      for (const vaultName of allVaultNames) {
+        const vault = savings.find(v => v.name === vaultName);
+        if (vault) {
+          updatedMeta[vault.id] = { source: "revolut", lastImported: importDate };
+          metaChanged = true;
+        }
+      }
+      if (metaChanged) {
+        localStorage.setItem("revolut_vaults", JSON.stringify(updatedMeta));
+        setRevVaultMeta(updatedMeta);
       }
     }
 
@@ -1863,7 +1877,7 @@ export default function App() {
                 <EmptyState emoji="📭" headline="Nothing here yet" sub="Add a vault below to start tracking your savings" />
               )}
               {savings.map((v) => {
-                const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : 0;
+                const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
                 const autoMeta = revVaultMeta[v.id];
                 return (
                   <div className="savings-row" key={v.id}>
@@ -1898,7 +1912,9 @@ export default function App() {
                           <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
                         </>
                       )}
-                      <span className={`badge ${pct >= 100 ? "badge-green" : pct >= 50 ? "badge-warn" : "badge-red"}`}>{pct.toFixed(0)}%</span>
+                      {pct !== null && (
+                        <span className={`badge ${pct >= 100 ? "badge-green" : pct >= 50 ? "badge-warn" : "badge-red"}`}>{pct.toFixed(0)}%</span>
+                      )}
                     </div>
                     {autoMeta && (
                       <div className="vault-auto-note">Balance overwritten on next Revolut import</div>
