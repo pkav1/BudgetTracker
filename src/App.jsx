@@ -804,9 +804,6 @@ export default function App() {
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
   });
-  const [holidaysMeta, setHolidaysMeta] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("holidays_vault_meta") || "{}"); } catch { return {}; }
-  });
   const [editingHolidays, setEditingHolidays] = useState(false);
   const [holidaysEditDraft, setHolidaysEditDraft] = useState({ destinationName: "", targetDate: "", photoFile: undefined, clearPhoto: false });
   const [holidaysUploading, setHolidaysUploading] = useState(false);
@@ -991,7 +988,25 @@ export default function App() {
             });
         }
       }
-      if (dbSavings?.length) setSavings(dbSavings);
+      if (dbSavings?.length) {
+        setSavings(dbSavings);
+        // One-time migration: move Holidays vault meta from localStorage to DB columns
+        const stored = (() => { try { return JSON.parse(localStorage.getItem("holidays_vault_meta") || "null"); } catch { return null; } })();
+        if (stored) {
+          const hv = dbSavings.find(s => s.name === "Holidays");
+          if (hv && !hv.destination_name && !hv.departure_date) {
+            const patch = {};
+            if (stored.destinationName) patch.destination_name = stored.destinationName;
+            if (stored.targetDate) patch.departure_date = stored.targetDate;
+            if (Object.keys(patch).length) {
+              supabase.from("savings").update(patch).eq("id", hv.id).eq("user_id", uid).then(() => {
+                setSavings(prev => prev.map(s => s.id === hv.id ? { ...s, ...patch } : s));
+              });
+            }
+            localStorage.removeItem("holidays_vault_meta");
+          }
+        }
+      }
       if (dbRules?.length) {
         setMerchantRules(dbRules);
         // One-time migration: strip POS date prefixes baked into saved merchant keys
@@ -2045,9 +2060,9 @@ export default function App() {
               const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
               const autoMeta = revVaultMeta[v.id];
               const hasPhoto = !!v.photo_url && !editingHolidays;
-              const days = daysUntil(holidaysMeta.targetDate);
+              const days = daysUntil(v.departure_date);
               const openEdit = () => {
-                setHolidaysEditDraft({ destinationName: holidaysMeta.destinationName || "", targetDate: holidaysMeta.targetDate || "", photoFile: undefined, clearPhoto: false });
+                setHolidaysEditDraft({ destinationName: v.destination_name || "", targetDate: v.departure_date || "", photoFile: undefined, clearPhoto: false });
                 setHolidaysUploadError(null);
                 setEditingHolidays(true);
               };
@@ -2077,14 +2092,20 @@ export default function App() {
                   }
                   const { error: dbErr } = await supabase
                     .from("savings")
-                    .update({ photo_url: photoUrl })
+                    .update({
+                      photo_url: photoUrl,
+                      destination_name: holidaysEditDraft.destinationName || null,
+                      departure_date: holidaysEditDraft.targetDate || null,
+                    })
                     .eq("id", v.id)
                     .eq("user_id", uid);
                   if (dbErr) throw dbErr;
-                  setSavings(prev => prev.map(s => s.id === v.id ? { ...s, photo_url: photoUrl } : s));
-                  const newMeta = { destinationName: holidaysEditDraft.destinationName, targetDate: holidaysEditDraft.targetDate };
-                  localStorage.setItem("holidays_vault_meta", JSON.stringify(newMeta));
-                  setHolidaysMeta(newMeta);
+                  setSavings(prev => prev.map(s => s.id === v.id ? {
+                    ...s,
+                    photo_url: photoUrl,
+                    destination_name: holidaysEditDraft.destinationName || null,
+                    departure_date: holidaysEditDraft.targetDate || null,
+                  } : s));
                   setEditingHolidays(false);
                 } catch (err) {
                   setHolidaysUploadError(err.message || "Upload failed");
@@ -2100,7 +2121,7 @@ export default function App() {
                       <div className="holidays-photo-overlay">
                         <div className="holidays-overlay-info">
                           <div className="holidays-dest-name">
-                            {holidaysMeta.destinationName || "Holidays"}
+                            {v.destination_name || "Holidays"}
                           </div>
                           {days !== null && (
                             <div className="holidays-countdown">{days} days to go</div>
@@ -2119,7 +2140,7 @@ export default function App() {
                       <div className="savings-info">
                         <div className="savings-name-row">
                           <span className="savings-name">
-                            {holidaysMeta.destinationName ? `Holidays — ${holidaysMeta.destinationName}` : "Holidays"}
+                            {v.destination_name ? `Holidays — ${v.destination_name}` : "Holidays"}
                           </span>
                           {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
                           {!editingHolidays && (
