@@ -685,6 +685,8 @@ body {
 
 /* ── Auth screen ────────────────────────────────────────────────────────────── */
 .auth-wrap {
+  position: relative;
+  overflow: hidden;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -693,17 +695,59 @@ body {
   background:
     radial-gradient(ellipse 65% 55% at 15% 12%, rgba(37, 99, 235, 0.13) 0%, transparent 70%),
     radial-gradient(ellipse 55% 50% at 85% 88%, rgba(124, 92, 255, 0.10) 0%, transparent 70%),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 37px, rgba(17, 24, 39, 0.028) 37px, rgba(17, 24, 39, 0.028) 38px),
     var(--bg);
 }
 .dark .auth-wrap {
   background:
     radial-gradient(ellipse 65% 55% at 15% 12%, rgba(59, 130, 246, 0.16) 0%, transparent 70%),
     radial-gradient(ellipse 55% 50% at 85% 88%, rgba(124, 92, 255, 0.13) 0%, transparent 70%),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 37px, rgba(255, 255, 255, 0.025) 37px, rgba(255, 255, 255, 0.025) 38px),
     var(--bg);
 }
+
+/* Ambient rising net-worth line drifting behind the card */
+.auth-chart {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  color: var(--accent);
+  opacity: 0.16;
+  filter: blur(1.1px);
+  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 72%);
+          mask-image: linear-gradient(to top, #000 0%, #000 30%, transparent 72%);
+}
+.dark .auth-chart { opacity: 0.26; }
+.auth-chart-tilt {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -6%;
+  height: 58%;
+  transform: rotate(-4.5deg);
+  animation: authChartBob 9s ease-in-out infinite;
+}
+.auth-chart-svg {
+  display: block;
+  width: 200%;
+  height: 100%;
+  animation: authChartDrift 55s linear infinite;
+  will-change: transform;
+}
+@keyframes authChartDrift {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes authChartBob {
+  0%, 100% { transform: rotate(-4.5deg) translateY(0); }
+  50%      { transform: rotate(-4.5deg) translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-chart-svg, .auth-chart-tilt { animation: none; }
+}
+
 .auth-card {
+  position: relative;
+  z-index: 1;
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: 20px;

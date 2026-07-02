@@ -593,6 +593,27 @@ function AuthScreen() {
 
   return (
     <div className="auth-wrap">
+      <div className="auth-chart" aria-hidden="true">
+        <div className="auth-chart-tilt">
+          <svg className="auth-chart-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="ledgerChartFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="currentColor" stopOpacity="0.32" />
+                <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M0,110 L40,96 L80,120 L120,88 L160,108 L200,74 L240,100 L280,64 L320,92 L360,70 L400,104 L440,82 L480,116 L520,90 L560,120 L600,110 L640,96 L680,120 L720,88 L760,108 L800,74 L840,100 L880,64 L920,92 L960,70 L1000,104 L1040,82 L1080,116 L1120,90 L1160,120 L1200,110 L1200,200 L0,200 Z"
+              fill="url(#ledgerChartFill)"
+            />
+            <path
+              d="M0,110 L40,96 L80,120 L120,88 L160,108 L200,74 L240,100 L280,64 L320,92 L360,70 L400,104 L440,82 L480,116 L520,90 L560,120 L600,110 L640,96 L680,120 L720,88 L760,108 L800,74 L840,100 L880,64 L920,92 L960,70 L1000,104 L1040,82 L1080,116 L1120,90 L1160,120 L1200,110"
+              fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke"
+              strokeLinejoin="round" strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      </div>
       <div className="auth-card">
         <div className="auth-brand">
           <span className="auth-mark" aria-hidden="true">
