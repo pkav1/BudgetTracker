@@ -437,7 +437,6 @@ body {
 .savings-info { flex: 1; min-width: 0; }
 .savings-name-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .savings-name { font-size: 14px; font-weight: 600; color: var(--text-1); }
-.savings-target { font-size: 11px; color: var(--text-3); }
 .savings-balance-static {
   font-size: 22px; font-weight: 700; color: var(--text-1);
   font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
@@ -451,33 +450,37 @@ body {
 .vault-last-imported { font-size: 10px; color: var(--text-3); margin-top: 3px; }
 .vault-dest-line { font-size: 11px; color: var(--accent); font-weight: 500; margin-top: 2px; }
 
-/* Holidays photo banner */
-.vault-photo-banner {
-  position: relative; margin: -1.25rem -1.25rem 0;
-  height: 190px; overflow: hidden;
-  border-radius: 14px 14px 0 0;
+/* Vault media tile — shared 76px slot: photo (Holidays) / glyph (others) / dashed placeholder */
+.vault-media {
+  width: 76px; height: 76px; flex-shrink: 0;
+  border-radius: 12px; overflow: hidden;
 }
-.vault-photo-banner-img {
-  width: 100%; height: 100%; object-fit: cover; display: block;
-}
-.vault-photo-banner-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.1) 55%, transparent 100%);
-  display: flex; align-items: flex-end; justify-content: space-between;
-  padding: 14px 16px;
-}
-.vault-banner-dest {
-  font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.3px; line-height: 1.1;
-}
-.vault-banner-days { font-size: 13px; color: rgba(255,255,255,0.82); margin-top: 3px; }
-.vault-banner-edit {
-  background: rgba(255,255,255,0.18); border: none; color: #fff; font-size: 15px;
-  width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+.vault-media-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vault-media-glyph {
+  width: 100%; height: 100%;
   display: flex; align-items: center; justify-content: center;
-  backdrop-filter: blur(4px); transition: background 0.15s; align-self: flex-start;
-  flex-shrink: 0;
+  font-size: 30px;
+  background: linear-gradient(135deg, var(--accent-bg), var(--surface-2));
 }
-.vault-banner-edit:hover { background: rgba(255,255,255,0.3); }
+.vault-media-placeholder {
+  width: 100%; height: 100%; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1.5px dashed var(--border); border-radius: 12px;
+  background: var(--surface-2); color: var(--text-3);
+  font-size: 26px; line-height: 1; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.vault-media-placeholder:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Editable target field (inline, per vault) */
+.savings-target-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.savings-target-label { font-size: 11px; color: var(--text-3); }
+.savings-target-input {
+  width: 90px; font-size: 12px; font-variant-numeric: tabular-nums;
+  padding: 3px 7px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface); color: var(--text-1);
+}
+.savings-target-input:focus { outline: none; border-color: var(--accent); }
 
 /* Savings summary card */
 .savings-summary-card { display: flex; flex-direction: column; gap: 5px; }

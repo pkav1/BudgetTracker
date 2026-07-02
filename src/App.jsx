@@ -2121,51 +2121,60 @@ export default function App() {
                 };
                 return (
                   <Fragment key={v.id}>
-                    {/* Photo banner — Holidays only, when photo is set */}
-                    {isHolidays && v.photo_url && (
-                      <div className="vault-photo-banner">
-                        <img src={v.photo_url} alt="Destination" className="vault-photo-banner-img" />
-                        <div className="vault-photo-banner-overlay">
-                          <div>
-                            {v.destination_name && (
-                              <div className="vault-banner-dest">{v.destination_name}</div>
-                            )}
-                            {days !== null && (
-                              <div className="vault-banner-days">{days} days to go</div>
-                            )}
-                          </div>
-                          {!editingHolidays && (
-                            <button className="vault-banner-edit" onClick={openEdit}>✎</button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Vault info row */}
+                    {/* Unified vault row: media tile · info · progress ring */}
                     <div className="savings-row">
+                      {/* Zone A — media tile (shared 76px slot) */}
+                      <div className="vault-media">
+                        {isHolidays ? (
+                          v.photo_url ? (
+                            <img src={v.photo_url} alt={v.destination_name || "Destination"} className="vault-media-photo" />
+                          ) : (
+                            <button className="vault-media-placeholder" onClick={openEdit} title="Add destination photo">＋</button>
+                          )
+                        ) : (
+                          <div className="vault-media-glyph">🛡️</div>
+                        )}
+                      </div>
+
+                      {/* Zone B — info block (identical structure for every vault) */}
                       <div className="savings-info">
                         <div className="savings-name-row">
                           <span className="savings-name">{v.name}</span>
                           {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
-                          {isHolidays && !v.photo_url && !editingHolidays && (
-                            <button className="holidays-edit-link" onClick={openEdit}>✎ Add photo</button>
+                          {isHolidays && !editingHolidays && (
+                            <button className="holidays-edit-link" onClick={openEdit}>✎ Edit</button>
                           )}
                         </div>
-                        {isHolidays && !v.photo_url && (v.destination_name || days !== null) && (
+                        {isHolidays && days !== null && (
                           <div className="vault-dest-line">
-                            {[v.destination_name, days !== null ? `${days} days to go` : null].filter(Boolean).join(" · ")}
+                            {v.destination_name ? `${days} days until ${v.destination_name}` : `${days} days to go`}
                           </div>
                         )}
                         <div className="savings-balance-static" style={{ marginTop: 6 }}>
                           €{v.balance.toFixed(2)}
                         </div>
-                        <div className="savings-target" style={{ marginTop: 2 }}>
-                          {v.target > 0 ? `Target: €${v.target.toLocaleString()}` : "No target set"}
+                        <div className="savings-target-row">
+                          <span className="savings-target-label">Target €</span>
+                          <input
+                            type="number" min="0" step="50" value={v.target || ""}
+                            placeholder="Set target"
+                            className="savings-target-input"
+                            onChange={(e) => {
+                              const uid = session.user.id;
+                              const val = parseFloat(e.target.value) || 0;
+                              setSavings(prev => prev.map(s => s.id === v.id ? { ...s, target: val } : s));
+                              debounceSave(`vault-target-${v.id}`, () => {
+                                supabase.from("savings").update({ target: val }).eq("id", v.id).eq("user_id", uid);
+                              });
+                            }}
+                          />
                         </div>
                         {autoMeta && (
                           <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>
                         )}
                       </div>
+
+                      {/* Zone C — progress ring */}
                       <VaultRing pct={pct} size={80} />
                     </div>
 
