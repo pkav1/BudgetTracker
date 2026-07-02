@@ -521,7 +521,7 @@ function VaultRing({ pct }) {
 
   let stroke;
   if (noTarget) {
-    stroke = "var(--accent)";
+    stroke = "#9ca3af";
   } else if (fillPct >= 100) {
     stroke = "#16a34a";
   } else if (fillPct >= 50) {
@@ -541,7 +541,7 @@ function VaultRing({ pct }) {
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.4s" }} />
       </svg>
-      <span className="vault-ring-label" style={{ color: noTarget ? "var(--accent)" : stroke }}>
+      <span className="vault-ring-label" style={{ color: stroke }}>
         {noTarget ? "—" : `${Math.round(fillPct)}%`}
       </span>
     </div>
@@ -2055,246 +2055,160 @@ export default function App() {
         {/* SAVINGS */}
         {tab === "savings" && (
           <>
-            {/* Holidays vault — special card */}
-            {savings.filter(sv => sv.name === "Holidays").map((v) => {
-              const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
-              const autoMeta = revVaultMeta[v.id];
-              const hasPhoto = !!v.photo_url && !editingHolidays;
-              const days = daysUntil(v.departure_date);
-              const openEdit = () => {
-                setHolidaysEditDraft({ destinationName: v.destination_name || "", targetDate: v.departure_date || "", photoFile: undefined, clearPhoto: false });
-                setHolidaysUploadError(null);
-                setEditingHolidays(true);
-              };
-              const saveHolidays = async () => {
-                const uid = session.user.id;
-                setHolidaysUploading(true);
-                setHolidaysUploadError(null);
-                try {
-                  let photoUrl = v.photo_url ?? null;
-                  if (holidaysEditDraft.clearPhoto) {
-                    // Delete from storage (best-effort) and clear URL
-                    const storagePath = `${uid}/holidays`;
-                    await supabase.storage.from("vault-photos").remove([storagePath]);
-                    photoUrl = null;
-                  } else if (holidaysEditDraft.photoFile) {
-                    const file = holidaysEditDraft.photoFile;
-                    const ext = file.name.split(".").pop();
-                    const storagePath = `${uid}/holidays.${ext}`;
-                    const { error: upErr } = await supabase.storage
-                      .from("vault-photos")
-                      .upload(storagePath, file, { upsert: true, contentType: file.type });
-                    if (upErr) throw upErr;
-                    const { data: { publicUrl } } = supabase.storage
-                      .from("vault-photos")
-                      .getPublicUrl(storagePath);
-                    photoUrl = publicUrl;
-                  }
-                  const { error: dbErr } = await supabase
-                    .from("savings")
-                    .update({
+            <div className="card">
+              <div className="card-title">Vaults &amp; savings</div>
+              {savings.length === 0 && (
+                <EmptyState emoji="📭" headline="Nothing here yet" sub="Import a Revolut CSV to populate your vaults" />
+              )}
+              {savings.map((v) => {
+                const isHolidays = v.name === "Holidays";
+                const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
+                const autoMeta = revVaultMeta[v.id];
+                const days = isHolidays ? daysUntil(v.departure_date) : null;
+                const openEdit = () => {
+                  setHolidaysEditDraft({ destinationName: v.destination_name || "", targetDate: v.departure_date || "", photoFile: undefined, clearPhoto: false });
+                  setHolidaysUploadError(null);
+                  setEditingHolidays(true);
+                };
+                const saveHolidays = async () => {
+                  const uid = session.user.id;
+                  setHolidaysUploading(true);
+                  setHolidaysUploadError(null);
+                  try {
+                    let photoUrl = v.photo_url ?? null;
+                    if (holidaysEditDraft.clearPhoto) {
+                      await supabase.storage.from("vault-photos").remove([`${uid}/holidays`]);
+                      photoUrl = null;
+                    } else if (holidaysEditDraft.photoFile) {
+                      const file = holidaysEditDraft.photoFile;
+                      const ext = file.name.split(".").pop();
+                      const storagePath = `${uid}/holidays.${ext}`;
+                      const { error: upErr } = await supabase.storage
+                        .from("vault-photos")
+                        .upload(storagePath, file, { upsert: true, contentType: file.type });
+                      if (upErr) throw upErr;
+                      const { data: { publicUrl } } = supabase.storage
+                        .from("vault-photos")
+                        .getPublicUrl(storagePath);
+                      photoUrl = publicUrl;
+                    }
+                    const { error: dbErr } = await supabase
+                      .from("savings")
+                      .update({
+                        photo_url: photoUrl,
+                        destination_name: holidaysEditDraft.destinationName || null,
+                        departure_date: holidaysEditDraft.targetDate || null,
+                      })
+                      .eq("id", v.id)
+                      .eq("user_id", uid);
+                    if (dbErr) throw dbErr;
+                    setSavings(prev => prev.map(s => s.id === v.id ? {
+                      ...s,
                       photo_url: photoUrl,
                       destination_name: holidaysEditDraft.destinationName || null,
                       departure_date: holidaysEditDraft.targetDate || null,
-                    })
-                    .eq("id", v.id)
-                    .eq("user_id", uid);
-                  if (dbErr) throw dbErr;
-                  setSavings(prev => prev.map(s => s.id === v.id ? {
-                    ...s,
-                    photo_url: photoUrl,
-                    destination_name: holidaysEditDraft.destinationName || null,
-                    departure_date: holidaysEditDraft.targetDate || null,
-                  } : s));
-                  setEditingHolidays(false);
-                } catch (err) {
-                  setHolidaysUploadError(err.message || "Upload failed");
-                } finally {
-                  setHolidaysUploading(false);
-                }
-              };
-              return (
-                <div key={v.id} className={`card holidays-card${hasPhoto ? " has-photo" : ""}`}>
-                  {hasPhoto ? (
-                    <div className="holidays-photo-wrap">
-                      <img src={v.photo_url} alt="Destination" className="holidays-photo" />
-                      <div className="holidays-photo-overlay">
-                        <div className="holidays-overlay-info">
-                          <div className="holidays-dest-name">
-                            {v.destination_name || "Holidays"}
-                          </div>
-                          {days !== null && (
-                            <div className="holidays-countdown">{days} days to go</div>
-                          )}
-                          <div className="holidays-balance-row">
-                            <span className="holidays-balance">€{v.balance.toFixed(2)}</span>
-                            {v.target > 0 && <span className="holidays-target-label"> / €{v.target.toLocaleString()} target</span>}
-                            <VaultRing pct={pct} />
-                          </div>
-                        </div>
-                        <button className="holidays-edit-trigger" onClick={openEdit}>✎</button>
-                      </div>
-                    </div>
-                  ) : (
+                    } : s));
+                    setEditingHolidays(false);
+                  } catch (err) {
+                    setHolidaysUploadError(err.message || "Upload failed");
+                  } finally {
+                    setHolidaysUploading(false);
+                  }
+                };
+                return (
+                  <Fragment key={v.id}>
                     <div className="savings-row">
-                      <div className="savings-info">
-                        <div className="savings-name-row">
-                          <span className="savings-name">
-                            {v.destination_name ? `Holidays — ${v.destination_name}` : "Holidays"}
-                          </span>
-                          {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
-                          {!editingHolidays && (
-                            <button className="holidays-edit-link" onClick={openEdit}>✎</button>
-                          )}
-                        </div>
-                        {v.target > 0 && <div className="savings-target">Target: €{v.target.toLocaleString()}</div>}
-                        {autoMeta && <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>}
-                        {days !== null && <div className="holidays-countdown-plain">{days} days until departure</div>}
-                      </div>
-                      <div className="savings-controls">
-                        {autoMeta ? (
-                          <span className="savings-balance-static">€{v.balance.toFixed(2)}</span>
-                        ) : (
-                          <>
-                            <span className="savings-prefix">€</span>
-                            <input
-                              type="number" min="0" step="50" value={v.balance}
-                              className="savings-input"
-                              onChange={(e) => {
-                                const uid = session.user.id;
-                                const val = parseFloat(e.target.value) || 0;
-                                setSavings((prev) => prev.map((s) => s.id === v.id ? { ...s, balance: val } : s));
-                                debounceSave(`savings-${v.id}`, () => {
-                                  supabase.from("savings").update({ balance: val }).eq("id", v.id).eq("user_id", uid);
-                                });
-                              }}
-                            />
-                          </>
-                        )}
-                        <VaultRing pct={pct} />
-                      </div>
-                      {autoMeta && <div className="vault-auto-note">Balance overwritten on next Revolut import</div>}
-                    </div>
-                  )}
-                  {editingHolidays && (
-                    <div className="holidays-edit-form">
-                      <div className="holidays-edit-field">
-                        <label className="holidays-edit-label">Destination</label>
-                        <input
-                          type="text" placeholder="e.g. Lisbon" value={holidaysEditDraft.destinationName}
-                          className="savings-input" style={{ width: "100%" }}
-                          onChange={(e) => setHolidaysEditDraft(d => ({ ...d, destinationName: e.target.value }))}
-                        />
-                      </div>
-                      <div className="holidays-edit-field">
-                        <label className="holidays-edit-label">Departure date</label>
-                        <input
-                          type="date" value={holidaysEditDraft.targetDate}
-                          className="savings-input"
-                          onChange={(e) => setHolidaysEditDraft(d => ({ ...d, targetDate: e.target.value }))}
-                        />
-                      </div>
-                      <div className="holidays-edit-field">
-                        <label className="holidays-edit-label">Destination photo</label>
-                        <div className="holidays-upload-row">
-                          <label className={`holidays-upload-label${holidaysUploading ? " disabled" : ""}`}>
-                            {holidaysEditDraft.photoFile ? holidaysEditDraft.photoFile.name : "Choose photo"}
-                            <input type="file" accept="image/*" style={{ display: "none" }} disabled={holidaysUploading}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                setHolidaysEditDraft(d => ({ ...d, photoFile: file, clearPhoto: false }));
-                              }} />
-                          </label>
-                          {!holidaysEditDraft.photoFile && v.photo_url && !holidaysEditDraft.clearPhoto && (
-                            <span className="holidays-upload-status">Current photo kept</span>
-                          )}
-                          {holidaysEditDraft.clearPhoto && (
-                            <span className="holidays-upload-status" style={{ color: "var(--red)" }}>Photo will be removed</span>
-                          )}
-                          {v.photo_url && !holidaysEditDraft.clearPhoto && (
-                            <button className="holidays-upload-clear" onClick={() => setHolidaysEditDraft(d => ({ ...d, clearPhoto: true, photoFile: undefined }))}>
-                              Remove photo
-                            </button>
-                          )}
-                          {holidaysEditDraft.clearPhoto && (
-                            <button className="holidays-upload-clear" onClick={() => setHolidaysEditDraft(d => ({ ...d, clearPhoto: false }))}>
-                              Undo
-                            </button>
-                          )}
-                        </div>
-                        {holidaysUploadError && (
-                          <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}>{holidaysUploadError}</div>
-                        )}
-                      </div>
-                      <div className="holidays-edit-actions">
-                        <button className="holidays-save-btn" onClick={saveHolidays} disabled={holidaysUploading}>
-                          {holidaysUploading ? "Uploading…" : "Save"}
-                        </button>
-                        <button className="holidays-cancel-btn" onClick={() => { setEditingHolidays(false); setHolidaysUploadError(null); }} disabled={holidaysUploading}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Regular vaults */}
-            {savings.filter(sv => sv.name !== "Holidays").length > 0 && (
-              <div className="card">
-                <div className="card-title">Vaults & savings</div>
-                {savings.filter(sv => sv.name !== "Holidays").map((v) => {
-                  const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
-                  const autoMeta = revVaultMeta[v.id];
-                  return (
-                    <div className="savings-row" key={v.id}>
+                      {isHolidays && v.photo_url && (
+                        <img src={v.photo_url} alt="Destination" className="vault-thumb" />
+                      )}
                       <div className="savings-info">
                         <div className="savings-name-row">
                           <span className="savings-name">{v.name}</span>
                           {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
+                          {isHolidays && !editingHolidays && (
+                            <button className="holidays-edit-link" onClick={openEdit}>✎</button>
+                          )}
                         </div>
-                        {v.target > 0 && <div className="savings-target">Target: €{v.target.toLocaleString()}</div>}
+                        {isHolidays && (v.destination_name || days !== null) && (
+                          <div className="vault-dest-line">
+                            {[v.destination_name, days !== null ? `${days} days to go` : null].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                        <div className="savings-target">
+                          {v.target > 0 ? `Target: €${v.target.toLocaleString()}` : "No target set"}
+                        </div>
                         {autoMeta && (
                           <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>
                         )}
                       </div>
                       <div className="savings-controls">
-                        {autoMeta ? (
-                          <span className="savings-balance-static">€{v.balance.toFixed(2)}</span>
-                        ) : (
-                          <>
-                            <span className="savings-prefix">€</span>
-                            <input
-                              type="number" min="0" step="50" value={v.balance}
-                              className="savings-input"
-                              onChange={(e) => {
-                                const uid = session.user.id;
-                                const val = parseFloat(e.target.value) || 0;
-                                setSavings((prev) => prev.map((s) => s.id === v.id ? { ...s, balance: val } : s));
-                                debounceSave(`savings-${v.id}`, () => {
-                                  supabase.from("savings").update({ balance: val }).eq("id", v.id).eq("user_id", uid);
-                                });
-                              }}
-                            />
-                            <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
-                          </>
-                        )}
+                        <span className="savings-balance-static">€{v.balance.toFixed(2)}</span>
                         <VaultRing pct={pct} />
                       </div>
-                      {autoMeta && (
-                        <div className="vault-auto-note">Balance overwritten on next Revolut import</div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-            {savings.length === 0 && (
-              <div className="card">
-                <div className="card-title">Vaults & savings</div>
-                <EmptyState emoji="📭" headline="Nothing here yet" sub="Add a vault below to start tracking your savings" />
-              </div>
-            )}
+                    {isHolidays && editingHolidays && (
+                      <div className="holidays-edit-form">
+                        <div className="holidays-edit-field">
+                          <label className="holidays-edit-label">Destination</label>
+                          <input
+                            type="text" placeholder="e.g. Lisbon" value={holidaysEditDraft.destinationName}
+                            className="savings-input" style={{ width: "100%" }}
+                            onChange={(e) => setHolidaysEditDraft(d => ({ ...d, destinationName: e.target.value }))}
+                          />
+                        </div>
+                        <div className="holidays-edit-field">
+                          <label className="holidays-edit-label">Departure date</label>
+                          <input
+                            type="date" value={holidaysEditDraft.targetDate}
+                            className="savings-input"
+                            onChange={(e) => setHolidaysEditDraft(d => ({ ...d, targetDate: e.target.value }))}
+                          />
+                        </div>
+                        <div className="holidays-edit-field">
+                          <label className="holidays-edit-label">Destination photo</label>
+                          <div className="holidays-upload-row">
+                            <label className={`holidays-upload-label${holidaysUploading ? " disabled" : ""}`}>
+                              {holidaysEditDraft.photoFile ? holidaysEditDraft.photoFile.name : "Choose photo"}
+                              <input type="file" accept="image/*" style={{ display: "none" }} disabled={holidaysUploading}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  setHolidaysEditDraft(d => ({ ...d, photoFile: file, clearPhoto: false }));
+                                }} />
+                            </label>
+                            {!holidaysEditDraft.photoFile && v.photo_url && !holidaysEditDraft.clearPhoto && (
+                              <span className="holidays-upload-status">Current photo kept</span>
+                            )}
+                            {holidaysEditDraft.clearPhoto && (
+                              <span className="holidays-upload-status" style={{ color: "var(--red)" }}>Photo will be removed</span>
+                            )}
+                            {v.photo_url && !holidaysEditDraft.clearPhoto && (
+                              <button className="holidays-upload-clear" onClick={() => setHolidaysEditDraft(d => ({ ...d, clearPhoto: true, photoFile: undefined }))}>
+                                Remove photo
+                              </button>
+                            )}
+                            {holidaysEditDraft.clearPhoto && (
+                              <button className="holidays-upload-clear" onClick={() => setHolidaysEditDraft(d => ({ ...d, clearPhoto: false }))}>
+                                Undo
+                              </button>
+                            )}
+                          </div>
+                          {holidaysUploadError && (
+                            <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}>{holidaysUploadError}</div>
+                          )}
+                        </div>
+                        <div className="holidays-edit-actions">
+                          <button className="holidays-save-btn" onClick={saveHolidays} disabled={holidaysUploading}>
+                            {holidaysUploading ? "Uploading…" : "Save"}
+                          </button>
+                          <button className="holidays-cancel-btn" onClick={() => { setEditingHolidays(false); setHolidaysUploadError(null); }} disabled={holidaysUploading}>Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
             {savings.length > 0 && (
               <div className="card savings-summary-card">
                 <div className="savings-summary-total">
