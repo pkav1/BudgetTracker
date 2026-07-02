@@ -416,11 +416,20 @@ const NAV_ITEMS = [
   { id: "settings",     icon: "⚙", label: "Settings"      },
 ];
 
-function BarChart({ labels, datasets, yPrefix = "€", tickColor = "#6b7280", gridColor = "#e8ebee" }) {
+// Resolve a CSS token (e.g. "--text-2") to its concrete value for the element's
+// current theme, so Chart.js canvas colours track light/dark mode.
+function readToken(el, name, fallback) {
+  const v = el && getComputedStyle(el).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function BarChart({ labels, datasets, yPrefix = "€", darkMode }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
   useEffect(() => {
     if (!ref.current) return;
+    const tickColor = readToken(ref.current, "--text-2", "#6b7280");
+    const gridColor = readToken(ref.current, "--border-light", "#e8ebee");
     if (chartRef.current) chartRef.current.destroy();
     chartRef.current = new Chart(ref.current, {
       type: "bar",
@@ -435,15 +444,17 @@ function BarChart({ labels, datasets, yPrefix = "€", tickColor = "#6b7280", gr
       },
     });
     return () => chartRef.current?.destroy();
-  }, [labels, datasets, tickColor, gridColor]);
+  }, [labels, datasets, darkMode]);
   return <canvas ref={ref} />;
 }
 
-function LineChart({ labels, data, yPrefix = "€" }) {
+function LineChart({ labels, data, yPrefix = "€", darkMode }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
   useEffect(() => {
     if (!ref.current) return;
+    const tickColor = readToken(ref.current, "--text-2", "#6b7280");
+    const gridColor = readToken(ref.current, "--border-light", "#e8ebee");
     if (chartRef.current) chartRef.current.destroy();
     chartRef.current = new Chart(ref.current, {
       type: "line",
@@ -464,13 +475,13 @@ function LineChart({ labels, data, yPrefix = "€" }) {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { display: false }, ticks: { color: "#898781", font: { size: 11 }, maxRotation: 30, maxTicksLimit: 10 } },
-          y: { grid: { color: "#e1e0d9" }, ticks: { color: "#898781", callback: (v) => yPrefix + v } },
+          x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11 }, maxRotation: 30, maxTicksLimit: 10 } },
+          y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: (v) => yPrefix + v } },
         },
       },
     });
     return () => chartRef.current?.destroy();
-  }, [labels, data]);
+  }, [labels, data, darkMode]);
   return <canvas ref={ref} />;
 }
 
@@ -679,22 +690,22 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
       </div>
       {pendingRule?.txnId === t.id && (
         <div style={{
-          background: "#eef3fd", border: "0.5px solid #b8ccf0", borderRadius: 8,
+          background: "var(--accent-bg)", border: "1px solid var(--border)", borderRadius: 8,
           padding: "7px 12px", margin: "2px 0 4px",
           display: "flex", alignItems: "center", gap: 10,
-          fontSize: 13, color: "#1c3a80",
+          fontSize: 13, color: "var(--accent)",
         }}>
           <span style={{ flex: 1, minWidth: 0 }}>
             Always categorise <strong style={{ wordBreak: "break-all" }}>"{pendingRule.merchant}"</strong> as <strong>{pendingRule.category}</strong>?
           </span>
           <button onClick={onSaveRule} style={{
-            background: "#2a78d6", color: "#fff", border: "none", borderRadius: 5,
+            background: "var(--accent)", color: "#fff", border: "none", borderRadius: 5,
             padding: "3px 10px", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
             whiteSpace: "nowrap", flexShrink: 0,
           }}>Yes</button>
           <button onClick={onDismissRule} style={{
-            background: "none", border: "0.5px solid #b8ccf0", borderRadius: 5,
-            padding: "3px 10px", fontSize: 12, cursor: "pointer", color: "#4a6da7",
+            background: "none", border: "1px solid var(--border)", borderRadius: 5,
+            padding: "3px 10px", fontSize: 12, cursor: "pointer", color: "var(--text-2)",
             fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0,
           }}>No</button>
         </div>
@@ -911,7 +922,7 @@ export default function App() {
 
   useEffect(() => {
     const names = { dashboard: "Dashboard", transactions: "Transactions", budget: "Budget", statements: "Statements", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
-    document.title = `${names[tab] ?? tab} — Budget Tracker`;
+    document.title = `${names[tab] ?? tab} — Ledger`;
   }, [tab]);
 
   async function loadPortfolio() {
@@ -1678,8 +1689,14 @@ export default function App() {
     <div className={`app${darkMode ? " dark" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <span className="sidebar-logo-mark">B</span>
-          <span className="sidebar-logo-text">Budget</span>
+          <span className="sidebar-logo-mark" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 30 30" fill="none">
+              <path d="M6 5 V22 H24" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+              <path d="M8.5 18.5 L13 13 L17 15.5 L23 7.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M23 7.5 H18.7 M23 7.5 V11.8" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <span className="sidebar-logo-text">Ledger</span>
         </div>
         <nav className="sidebar-nav">
           {NAV_ITEMS.map(({ id, icon, label }) => (
@@ -1762,6 +1779,7 @@ export default function App() {
                       return `${dt.getDate()} ${dt.toLocaleString("en-IE", { month: "short" })}`;
                     })}
                     data={nwSorted.map(s => Number(s.total))}
+                    darkMode={darkMode}
                   />
                 </div>
               ) : (
@@ -1894,7 +1912,7 @@ export default function App() {
                   })}
                   {activeCats.length > 0 && (
                     <div className="chart-wrap">
-                      <BarChart labels={activeCats.map((b) => b.name)} datasets={dashDatasets} />
+                      <BarChart labels={activeCats.map((b) => b.name)} datasets={dashDatasets} darkMode={darkMode} />
                     </div>
                   )}
                 </div>
@@ -1967,6 +1985,7 @@ export default function App() {
                       return `${dt.getDate()} ${dt.toLocaleString("en-IE", { month: "short" })}`;
                     })}
                     data={balanceData}
+                    darkMode={darkMode}
                   />
                 </div>
               </div>
@@ -1975,7 +1994,7 @@ export default function App() {
             <div className="card">
               <div className="card-title">Spending trends — last 8 weeks</div>
               <div className="chart-wrap">
-                <BarChart labels={trendWeeks.map((w) => w.label)} datasets={trendDatasets} />
+                <BarChart labels={trendWeeks.map((w) => w.label)} datasets={trendDatasets} darkMode={darkMode} />
               </div>
             </div>
           </>
