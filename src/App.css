@@ -458,6 +458,89 @@ body {
   font-size: 15px; font-weight: 600; color: var(--text-1);
   font-variant-numeric: tabular-nums; letter-spacing: -0.2px;
 }
+.savings-summary-card { display: flex; flex-direction: column; gap: 5px; }
+.savings-summary-total {
+  font-size: 30px; font-weight: 700; letter-spacing: -1px; color: var(--text-1); line-height: 1;
+}
+.savings-summary-label { font-size: 13px; color: var(--text-2); }
+.savings-summary-pct { color: var(--accent); font-weight: 600; }
+
+/* Holidays vault card */
+.holidays-card { overflow: hidden; padding: 0; }
+.holidays-card:not(.has-photo) { padding: 1rem 1.25rem; }
+.holidays-card:not(.has-photo) .savings-row { padding: 0; border: none; }
+
+.holidays-photo-wrap { position: relative; width: 100%; height: 220px; }
+.holidays-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.holidays-photo-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.15) 60%, transparent 100%);
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 1rem 1.1rem;
+}
+.holidays-overlay-info { display: flex; flex-direction: column; gap: 3px; }
+.holidays-dest-name { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: -0.3px; line-height: 1.1; }
+.holidays-countdown { font-size: 13px; color: rgba(255,255,255,0.8); }
+.holidays-balance-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.holidays-balance { font-size: 15px; font-weight: 600; color: #fff; }
+.holidays-target-label { font-size: 12px; color: rgba(255,255,255,0.65); }
+
+.holidays-edit-trigger {
+  background: rgba(255,255,255,0.18); border: none; color: #fff; font-size: 15px;
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; align-self: flex-start;
+  transition: background 0.15s; backdrop-filter: blur(4px);
+}
+.holidays-edit-trigger:hover { background: rgba(255,255,255,0.3); }
+
+.holidays-edit-link {
+  background: none; border: none; color: var(--text-3); font-size: 13px;
+  cursor: pointer; padding: 0 4px; line-height: 1; transition: color 0.12s;
+}
+.holidays-edit-link:hover { color: var(--accent); }
+
+.holidays-countdown-plain { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.holidays-edit-form {
+  padding: 1rem 0 0.25rem;
+  display: flex; flex-direction: column; gap: 12px;
+  border-top: 1px solid var(--border-light);
+  margin-top: 12px;
+}
+.holidays-card.has-photo .holidays-edit-form {
+  padding: 1rem 1.25rem 1rem;
+  margin-top: 0;
+}
+.holidays-edit-field { display: flex; flex-direction: column; gap: 5px; }
+.holidays-edit-label { font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.4px; }
+
+.holidays-upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.holidays-upload-label {
+  font-size: 13px; font-weight: 500; color: var(--accent); cursor: pointer;
+  padding: 5px 12px; border: 1px solid var(--accent); border-radius: 6px;
+  transition: background 0.12s, color 0.12s; max-width: 200px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.holidays-upload-label:hover { background: var(--accent); color: #fff; }
+.holidays-upload-label.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+.holidays-upload-status { font-size: 12px; color: var(--text-3); }
+.holidays-upload-clear {
+  background: none; border: none; color: var(--red); font-size: 12px; cursor: pointer; padding: 0;
+}
+.holidays-upload-clear:hover { text-decoration: underline; }
+
+.holidays-edit-actions { display: flex; gap: 8px; padding-top: 4px; }
+.holidays-save-btn {
+  padding: 7px 18px; border-radius: 8px; border: none; background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.holidays-save-btn:hover { opacity: 0.88; }
+.holidays-cancel-btn {
+  padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border-light); background: none;
+  color: var(--text-2); font-size: 13px; cursor: pointer; transition: background 0.12s;
+}
+.holidays-cancel-btn:hover { background: var(--surface-2); }
+
 .vault-ring-wrap {
   position: relative;
   display: inline-flex;
