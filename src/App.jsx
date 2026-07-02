@@ -503,9 +503,9 @@ function DoughnutChart({ labels, data, colors, textColor = "#52514e" }) {
   return <canvas ref={ref} />;
 }
 
-function VaultRing({ pct }) {
-  const SIZE = 44;
-  const STROKE = 4.5;
+function VaultRing({ pct, size = 44 }) {
+  const SIZE = size;
+  const STROKE = size >= 72 ? 6 : 4.5;
   const r = (SIZE - STROKE) / 2;
   const circ = 2 * Math.PI * r;
   const [animated, setAnimated] = useState(false);
@@ -531,8 +531,10 @@ function VaultRing({ pct }) {
     stroke = "#f59e0b";
   }
 
+  const labelSize = size >= 72 ? 14 : 10;
+
   return (
-    <div className="vault-ring-wrap">
+    <div className="vault-ring-wrap" style={{ width: SIZE, height: SIZE }}>
       <svg width={SIZE} height={SIZE} style={{ display: "block", transform: "rotate(-90deg)" }}>
         <circle cx={SIZE / 2} cy={SIZE / 2} r={r}
           fill="none" stroke="var(--border-light)" strokeWidth={STROKE} />
@@ -541,7 +543,7 @@ function VaultRing({ pct }) {
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.4s" }} />
       </svg>
-      <span className="vault-ring-label" style={{ color: stroke }}>
+      <span className="vault-ring-label" style={{ color: stroke, fontSize: labelSize }}>
         {noTarget ? "—" : `${Math.round(fillPct)}%`}
       </span>
     </div>
@@ -875,7 +877,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (tab === "investments" && portfolio === null && !portfolioLoading && !portfolioError) {
+    if ((tab === "investments" || tab === "dashboard") && portfolio === null && !portfolioLoading && !portfolioError) {
       loadPortfolio();
     }
   }, [tab]);
@@ -1642,19 +1644,24 @@ export default function App() {
 
               <button className="snap-tile" onClick={() => setTab("investments")}>
                 <div className="snap-tile-header"><span className="snap-tile-icon">↗</span>Portfolio</div>
-                {portfolio !== null ? (
+                {portfolioLoading ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>…</div>
+                    <div className="snap-tile-sub">Loading</div>
+                  </>
+                ) : portfolio !== null ? (
                   <>
                     <div className="snap-tile-primary" style={{ color: pfTotalPnL >= 0 ? "var(--green)" : "var(--red)" }}>
                       {pfTotalPnL >= 0 ? "+" : ""}€{pfTotalPnL.toFixed(2)}
                     </div>
                     <div className="snap-tile-sub">{pfPnLPct >= 0 ? "+" : ""}{pfPnLPct.toFixed(2)}% return</div>
                   </>
-                ) : (
+                ) : portfolioError ? (
                   <>
                     <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
-                    <div className="snap-tile-sub">Open to load</div>
+                    <div className="snap-tile-sub">Could not load</div>
                   </>
-                )}
+                ) : null}
               </button>
 
               <button className="snap-tile" onClick={() => setTab("planner")}>
@@ -1696,12 +1703,10 @@ export default function App() {
 
             {viewMode === "weekly" ? (
               <>
-                <div className="metric-row">
+                <div className="metric-row metric-row-2">
                   {[
-                    { label: "Spent this week", value: `€${totalSpent.toFixed(0)}`, sub: `of €${totalBudget} budget` },
-                    { label: "Remaining", value: `${remaining < 0 ? "-" : ""}€${Math.abs(remaining).toFixed(0)}`, sub: remaining < 0 ? "over budget" : "left this week", warn: remaining < 0 },
-                    { label: "Transactions", value: weekTxns.length, sub: "this week" },
-                    { label: "Savings total", value: `€${totalSavings.toLocaleString()}`, sub: "across all vaults" },
+                    { label: "Remaining this week", value: `${remaining < 0 ? "-" : ""}€${Math.abs(remaining).toFixed(0)}`, sub: remaining < 0 ? "over budget" : "left in budget", warn: remaining < 0 },
+                    { label: "Transactions this week", value: weekTxns.length, sub: `${weekSpendTxns.length} spending · ${weekTransferTxns.length} transfers` },
                   ].map((m) => (
                     <div className="metric" key={m.label}>
                       <div className="metric-label">{m.label}</div>
@@ -1764,7 +1769,6 @@ export default function App() {
                     { label: "Spent", value: `€${totalMonthSpent.toFixed(0)}`, sub: monthLabel },
                     { label: "Income", value: `€${totalMonthIncome.toFixed(0)}`, sub: "received this month" },
                     { label: "Net saved", value: `${netSaved < 0 ? "-" : ""}€${Math.abs(netSaved).toFixed(0)}`, sub: netSaved < 0 ? "deficit" : "surplus", warn: netSaved < 0 },
-                    { label: "Savings total", value: `€${totalSavings.toLocaleString()}`, sub: "across all vaults" },
                   ].map((m) => (
                     <div className="metric" key={m.label}>
                       <div className="metric-label">{m.label}</div>
@@ -2117,35 +2121,55 @@ export default function App() {
                 };
                 return (
                   <Fragment key={v.id}>
+                    {/* Photo banner — Holidays only, when photo is set */}
+                    {isHolidays && v.photo_url && (
+                      <div className="vault-photo-banner">
+                        <img src={v.photo_url} alt="Destination" className="vault-photo-banner-img" />
+                        <div className="vault-photo-banner-overlay">
+                          <div>
+                            {v.destination_name && (
+                              <div className="vault-banner-dest">{v.destination_name}</div>
+                            )}
+                            {days !== null && (
+                              <div className="vault-banner-days">{days} days to go</div>
+                            )}
+                          </div>
+                          {!editingHolidays && (
+                            <button className="vault-banner-edit" onClick={openEdit}>✎</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Vault info row */}
                     <div className="savings-row">
-                      {isHolidays && v.photo_url && (
-                        <img src={v.photo_url} alt="Destination" className="vault-thumb" />
-                      )}
                       <div className="savings-info">
                         <div className="savings-name-row">
                           <span className="savings-name">{v.name}</span>
                           {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
-                          {isHolidays && !editingHolidays && (
-                            <button className="holidays-edit-link" onClick={openEdit}>✎</button>
+                          {isHolidays && !v.photo_url && !editingHolidays && (
+                            <button className="holidays-edit-link" onClick={openEdit}>✎ Add photo</button>
                           )}
                         </div>
-                        {isHolidays && (v.destination_name || days !== null) && (
+                        {isHolidays && !v.photo_url && (v.destination_name || days !== null) && (
                           <div className="vault-dest-line">
                             {[v.destination_name, days !== null ? `${days} days to go` : null].filter(Boolean).join(" · ")}
                           </div>
                         )}
-                        <div className="savings-target">
+                        <div className="savings-balance-static" style={{ marginTop: 6 }}>
+                          €{v.balance.toFixed(2)}
+                        </div>
+                        <div className="savings-target" style={{ marginTop: 2 }}>
                           {v.target > 0 ? `Target: €${v.target.toLocaleString()}` : "No target set"}
                         </div>
                         {autoMeta && (
                           <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>
                         )}
                       </div>
-                      <div className="savings-controls">
-                        <span className="savings-balance-static">€{v.balance.toFixed(2)}</span>
-                        <VaultRing pct={pct} />
-                      </div>
+                      <VaultRing pct={pct} size={80} />
                     </div>
+
+                    {/* Holidays edit form */}
                     {isHolidays && editingHolidays && (
                       <div className="holidays-edit-form">
                         <div className="holidays-edit-field">
