@@ -396,6 +396,17 @@ const PLANNER_DEFAULT = {
   savings_dates: {},
 };
 
+const NAV_ITEMS = [
+  { id: "dashboard",    icon: "⊞", label: "Dashboard"    },
+  { id: "transactions", icon: "≡", label: "Transactions"  },
+  { id: "budget",       icon: "◑", label: "Budget"        },
+  { id: "savings",      icon: "⬡", label: "Savings"       },
+  { id: "investments",  icon: "↗", label: "Investments"   },
+  { id: "planner",      icon: "▦", label: "Planner"       },
+  { id: "statements",   icon: "↑", label: "Statements"    },
+  { id: "settings",     icon: "⚙", label: "Settings"      },
+];
+
 function BarChart({ labels, datasets, yPrefix = "€", tickColor = "#6b7280", gridColor = "#e8ebee" }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
@@ -481,6 +492,51 @@ function DoughnutChart({ labels, data, colors, textColor = "#52514e" }) {
     return () => chartRef.current?.destroy();
   }, [labels, data, colors, textColor]);
   return <canvas ref={ref} />;
+}
+
+function VaultRing({ pct }) {
+  const SIZE = 44;
+  const STROKE = 4.5;
+  const r = (SIZE - STROKE) / 2;
+  const circ = 2 * Math.PI * r;
+  const [animated, setAnimated] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimated(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const noTarget = pct === null;
+  const fillPct = noTarget ? 100 : Math.min(100, pct);
+  const offset = animated ? circ * (1 - fillPct / 100) : circ;
+
+  let stroke;
+  if (noTarget) {
+    stroke = "var(--accent)";
+  } else if (fillPct >= 100) {
+    stroke = "#16a34a";
+  } else if (fillPct >= 50) {
+    const t = (fillPct - 50) / 50;
+    stroke = `rgb(${Math.round(245 + t * (34 - 245))},${Math.round(158 + t * (197 - 158))},${Math.round(11 + t * (94 - 11))})`;
+  } else {
+    stroke = "#f59e0b";
+  }
+
+  return (
+    <div className="vault-ring-wrap">
+      <svg width={SIZE} height={SIZE} style={{ display: "block", transform: "rotate(-90deg)" }}>
+        <circle cx={SIZE / 2} cy={SIZE / 2} r={r}
+          fill="none" stroke="var(--border-light)" strokeWidth={STROKE} />
+        <circle cx={SIZE / 2} cy={SIZE / 2} r={r}
+          fill="none" stroke={stroke} strokeWidth={STROKE}
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1), stroke 0.4s" }} />
+      </svg>
+      <span className="vault-ring-label" style={{ color: noTarget ? "var(--accent)" : stroke }}>
+        {noTarget ? "—" : `${Math.round(fillPct)}%`}
+      </span>
+    </div>
+  );
 }
 
 function AuthScreen() {
@@ -1465,28 +1521,46 @@ export default function App() {
 
   return (
     <div className={`app${darkMode ? " dark" : ""}`}>
-      <header className="header">
-        <div className="header-inner">
-          <span className="logo">💶 Budget</span>
-          <nav className="tabs">
-            {["dashboard","transactions","budget","statements","savings","investments","planner","settings"].map((t) => (
-              <button key={t} className={`tab${tab === t ? " active" : ""}`} onClick={() => setTab(t)}>
-                {{ statements: "Statements" }[t] ?? (t.charAt(0).toUpperCase() + t.slice(1))}
-              </button>
-            ))}
-          </nav>
-          <div className="header-actions">
-            <button
-              className="icon-btn"
-              onClick={toggleDark}
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? "☀️" : "🌙"}
-            </button>
-            <button className="logout-btn" onClick={() => supabase.auth.signOut()}>Log out</button>
-          </div>
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <span className="sidebar-logo-mark">B</span>
+          <span className="sidebar-logo-text">Budget</span>
         </div>
-      </header>
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(({ id, icon, label }) => (
+            <button
+              key={id}
+              className={`sidebar-item${tab === id ? " active" : ""}`}
+              onClick={() => setTab(id)}
+            >
+              <span className="sidebar-icon">{icon}</span>
+              <span className="sidebar-label">{label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <button className="sidebar-action" onClick={toggleDark}>
+            <span className="sidebar-icon">{darkMode ? "☀️" : "🌙"}</span>
+            <span className="sidebar-label">{darkMode ? "Light" : "Dark"} mode</span>
+          </button>
+          <div className="sidebar-user">
+            <span className="sidebar-user-avatar">{session.user.email[0].toUpperCase()}</span>
+            <span className="sidebar-user-email">{session.user.email}</span>
+          </div>
+          <button className="sidebar-signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
+        </div>
+      </aside>
+      <nav className="bottom-nav">
+        {NAV_ITEMS.map(({ id, icon }) => (
+          <button
+            key={id}
+            className={`bottom-nav-item${tab === id ? " active" : ""}`}
+            onClick={() => setTab(id)}
+          >
+            <span className="bottom-nav-icon">{icon}</span>
+          </button>
+        ))}
+      </nav>
 
       {loading ? <DashboardSkeleton /> : (
       <main className="main">
@@ -1912,9 +1986,7 @@ export default function App() {
                           <button className="remove-btn" onClick={() => removeVault(v.id)}>✕</button>
                         </>
                       )}
-                      {pct !== null && (
-                        <span className={`badge ${pct >= 100 ? "badge-green" : pct >= 50 ? "badge-warn" : "badge-red"}`}>{pct.toFixed(0)}%</span>
-                      )}
+                      <VaultRing pct={pct} />
                     </div>
                     {autoMeta && (
                       <div className="vault-auto-note">Balance overwritten on next Revolut import</div>
