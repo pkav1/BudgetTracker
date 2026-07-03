@@ -1116,6 +1116,7 @@ export default function App() {
   const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
   const [recurringOpen, setRecurringOpen] = useState(false); // collapsible recurring panel
   const [rulesExpanded, setRulesExpanded] = useState(false); // Settings: show all merchant rules
+  const [plannerSaveError, setPlannerSaveError] = useState(null); // surfaced Supabase error, if any
   const saveTimers = useRef({});
   const inFlightSaves = useRef(new Set()); // writes that have fired but not yet completed
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
@@ -1869,11 +1870,21 @@ export default function App() {
       fixed_costs: p.fixed_costs,
       savings_dates: p.savings_dates,
     };
+    let error;
     if (p.id) {
-      await supabase.from("planner").update(payload).eq("id", p.id);
+      ({ error } = await supabase.from("planner").update(payload).eq("id", p.id));
     } else {
-      const { data } = await supabase.from("planner").insert(payload).select().single();
-      if (data) setPlanner((prev) => ({ ...prev, id: data.id }));
+      const res = await supabase.from("planner").insert(payload).select().single();
+      error = res.error;
+      if (res.data) setPlanner((prev) => ({ ...prev, id: res.data.id }));
+    }
+    if (error) {
+      // Surface the real Postgres/PostgREST error instead of swallowing it.
+      console.error("[planner save failed]", error);
+      const parts = [error.code, error.message, error.details, error.hint && `hint: ${error.hint}`].filter(Boolean);
+      setPlannerSaveError(parts.join(" · "));
+    } else {
+      setPlannerSaveError(null);
     }
   }
 
@@ -3095,6 +3106,11 @@ export default function App() {
                 {plannerAvailable < 0 ? "−" : ""}<CountUp value={Math.abs(plannerAvailable)} prefix="€" />
               </span>
             </TabHeader>
+            {plannerSaveError && (
+              <div className="import-msg err" style={{ marginBottom: "1rem", wordBreak: "break-word" }}>
+                Planner didn’t save: {plannerSaveError}
+              </div>
+            )}
             <div className="planner-grid">
               <div className="planner-inputs">
             {/* Monthly income */}
