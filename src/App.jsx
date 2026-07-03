@@ -2152,7 +2152,7 @@ export default function App() {
                         <div className="budget-label">{b.icon}<span>{b.name}</span></div>
                         <div className="progress-wrap">{b.limit_amount > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
                         <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
-                        <div className="budget-limit">{b.limit_amount > 0 ? `/ €${b.limit_amount}${isMonthly ? "/mo" : ""}` : ""}</div>
+                        <div className="budget-limit">{b.limit_amount > 0 ? `/ €${b.limit_amount}${isMonthly ? "/mo" : "/wk"}` : ""}</div>
                       </div>
                     );
                   })}
@@ -2811,15 +2811,15 @@ export default function App() {
                             {v.destination_name ? `${days} days until ${v.destination_name}` : `${days} days to go`}
                           </div>
                         )}
-                        <div className="savings-balance-static" style={{ marginTop: 6 }}>
-                          €{v.balance.toFixed(2)}
-                        </div>
-                        <div className="savings-target-row">
-                          <span className="savings-target-label">Target €</span>
+                        <div className="savings-balance-line" style={{ marginTop: 6 }}>
+                          <span className="savings-balance-amount">€{v.balance.toFixed(2)}</span>
+                          {" of €"}
                           <input
                             type="number" min="0" step="50" value={v.target || ""}
-                            placeholder="Set target"
-                            className="savings-target-input"
+                            placeholder="—"
+                            aria-label="Target amount"
+                            className="savings-target-inline"
+                            style={{ width: `${Math.max((v.target ? String(v.target).length : 2), 2) + 1}ch` }}
                             onChange={(e) => {
                               const uid = session.user.id;
                               const val = parseFloat(e.target.value) || 0;
@@ -2829,6 +2829,7 @@ export default function App() {
                               });
                             }}
                           />
+                          {" target"}
                         </div>
                         {autoMeta && (
                           <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>

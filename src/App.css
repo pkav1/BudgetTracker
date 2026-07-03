@@ -766,14 +766,32 @@ input, select, textarea, button { font-family: inherit; }
 .vault-media-placeholder:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Editable target field (inline, per vault) */
-.savings-target-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-.savings-target-label { font-size: 11px; color: var(--text-3); }
-.savings-target-input {
-  width: 90px; font-size: 12px; font-variant-numeric: tabular-nums;
-  padding: 3px 7px; border: 1px solid var(--border); border-radius: 7px;
-  background: var(--surface); color: var(--text-1);
+/* Balance + inline-editable target, reading as one line */
+.savings-balance-line { font-size: 13px; color: var(--text-3); line-height: 1.35; }
+.savings-balance-amount {
+  font-size: 22px; font-weight: 700; color: var(--text-1);
+  letter-spacing: -0.5px; font-variant-numeric: tabular-nums;
 }
-.savings-target-input:focus { outline: none; border-color: var(--accent); }
+.savings-target-inline {
+  font-family: inherit; font-size: 17px; font-weight: 600; color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  border: none; border-bottom: 1px dashed transparent;
+  background: none; padding: 0 1px; outline: none; text-align: left;
+  -moz-appearance: textfield; appearance: textfield;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: text; min-width: 2ch;
+}
+.savings-target-inline::-webkit-outer-spin-button,
+.savings-target-inline::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.savings-target-inline::placeholder { color: var(--text-3); font-weight: 500; }
+.savings-target-inline:hover { border-bottom-color: var(--border); }
+/* Higher specificity than the global .app input:focus ring — keep it borderless, not boxed */
+.app .savings-target-inline:focus {
+  border-bottom-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: none;
+  border-radius: 3px 3px 0 0;
+}
 
 /* Savings summary card */
 .savings-summary-card { display: flex; flex-direction: column; gap: 5px; }
