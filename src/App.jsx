@@ -416,6 +416,81 @@ const NAV_ITEMS = [
   { id: "settings",     icon: "⚙", label: "Settings"      },
 ];
 
+// Sidebar grouping — same items, organised into labelled sections
+const NAV_GROUPS = [
+  { label: "Overview", ids: ["dashboard"] },
+  { label: "Money",    ids: ["transactions", "statements"] },
+  { label: "Plan",     ids: ["budget", "planner"] },
+  { label: "Grow",     ids: ["savings", "investments"] },
+  { label: "System",   ids: ["settings"] },
+];
+
+// One consistent inline-SVG stroke-icon set, matching the Ledger rising-line mark.
+const ICON_SHAPES = {
+  dashboard: (<>
+    <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+    <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+    <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+    <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+  </>),
+  transactions: (<>
+    <circle cx="5" cy="6.5" r="1.1" /><path d="M9 6.5h11" />
+    <circle cx="5" cy="12" r="1.1" /><path d="M9 12h11" />
+    <circle cx="5" cy="17.5" r="1.1" /><path d="M9 17.5h11" />
+  </>),
+  statements: (<>
+    <path d="M6 3.5h7l4.5 4.5V19.5A1.5 1.5 0 0 1 16 21H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z" />
+    <path d="M13 3.5V8.5h4.5" />
+    <path d="M8 13h8M8 16.5h5" />
+  </>),
+  budget: (<>
+    <path d="M4 16a8 8 0 0 1 16 0" />
+    <path d="M12 16l4.5-3.5" />
+    <circle cx="12" cy="16" r="1" />
+  </>),
+  planner: (<>
+    <rect x="4" y="5" width="16" height="15" rx="2" />
+    <path d="M4 9.5h16M8.5 3.5v3M15.5 3.5v3" />
+    <circle cx="12" cy="14" r="1.2" />
+  </>),
+  savings: (<>
+    <rect x="3.5" y="5" width="17" height="14" rx="2" />
+    <circle cx="12" cy="12" r="3.3" />
+    <path d="M12 12v-1.3" />
+    <path d="M6.5 19v1.5M17.5 19v1.5" />
+  </>),
+  investments: (<>
+    <path d="M3.5 16.5l5-5 4 3 7.5-8" />
+    <path d="M15.5 6.5h5V11.5" />
+  </>),
+  settings: (<>
+    <path d="M4 7h3M11 7h9" /><circle cx="9" cy="7" r="2" />
+    <path d="M4 12h9M17 12h3" /><circle cx="15" cy="12" r="2" />
+    <path d="M4 17h5M13 17h7" /><circle cx="11" cy="17" r="2" />
+  </>),
+  search: (<>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M16.5 16.5L21 21" />
+  </>),
+  alert: (<>
+    <path d="M12 4L2.5 20h19L12 4z" />
+    <path d="M12 10.5v4" />
+    <circle cx="12" cy="17.3" r="0.6" fill="currentColor" stroke="none" />
+  </>),
+};
+
+function Icon({ name, size = 18, className }) {
+  const shape = ICON_SHAPES[name];
+  if (!shape) return null;
+  return (
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {shape}
+    </svg>
+  );
+}
+
 // Resolve a CSS token (e.g. "--text-2") to its concrete value for the element's
 // current theme, so Chart.js canvas colours track light/dark mode.
 function readToken(el, name, fallback) {
@@ -754,10 +829,12 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
   );
 }
 
-function EmptyState({ emoji = "📭", headline, sub }) {
+function EmptyState({ emoji = "📭", icon, headline, sub }) {
   return (
     <div className="empty-illustration">
-      <div className="empty-emoji">{emoji}</div>
+      {icon
+        ? <div className="empty-icon"><Icon name={icon} size={30} /></div>
+        : <div className="empty-emoji">{emoji}</div>}
       <div className="empty-headline">{headline}</div>
       {sub && <div className="empty-sub">{sub}</div>}
     </div>
@@ -1760,15 +1837,23 @@ export default function App() {
           <span className="sidebar-logo-text">Ledger</span>
         </div>
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ id, icon, label }) => (
-            <button
-              key={id}
-              className={`sidebar-item${tab === id ? " active" : ""}`}
-              onClick={() => setTab(id)}
-            >
-              <span className="sidebar-icon">{icon}</span>
-              <span className="sidebar-label">{label}</span>
-            </button>
+          {NAV_GROUPS.map((group) => (
+            <div className="sidebar-group" key={group.label}>
+              <div className="sidebar-group-label">{group.label}</div>
+              {group.ids.map((id) => {
+                const item = NAV_ITEMS.find((n) => n.id === id);
+                return (
+                  <button
+                    key={id}
+                    className={`sidebar-item${tab === id ? " active" : ""}`}
+                    onClick={() => setTab(id)}
+                  >
+                    <span className="sidebar-icon"><Icon name={id} size={18} /></span>
+                    <span className="sidebar-label">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -1784,13 +1869,13 @@ export default function App() {
         </div>
       </aside>
       <nav className="bottom-nav">
-        {NAV_ITEMS.map(({ id, icon }) => (
+        {NAV_ITEMS.map(({ id }) => (
           <button
             key={id}
             className={`bottom-nav-item${tab === id ? " active" : ""}`}
             onClick={() => setTab(id)}
           >
-            <span className="bottom-nav-icon">{icon}</span>
+            <span className="bottom-nav-icon"><Icon name={id} size={20} /></span>
           </button>
         ))}
       </nav>
@@ -1910,7 +1995,7 @@ export default function App() {
                 <div className="card">
                   <div className="card-title">Recent transactions</div>
                   {weekTxns.length === 0 ? (
-                    <EmptyState headline="Nothing here yet" sub="Import a Revolut CSV to see your spending" />
+                    <EmptyState icon="transactions" headline="Nothing here yet" sub="Import a Revolut CSV to see your spending" />
                   ) : (
                     <>
                       {weekSpendTxns.map((t) => (
@@ -1950,7 +2035,7 @@ export default function App() {
                 <div className="card">
                   <div className="card-title">Spending breakdown — {monthLabel}</div>
                   {monthCatsSorted.length === 0 ? (
-                    <EmptyState headline="Nothing here yet" sub={`No spending recorded for ${monthLabel}`} />
+                    <EmptyState icon="transactions" headline="Nothing here yet" sub={`No spending recorded for ${monthLabel}`} />
                   ) : monthCatsSorted.map((c) => {
                     const pct = totalMonthSpent > 0 ? (c.spent / totalMonthSpent) * 100 : 0;
                     return (
@@ -1972,7 +2057,7 @@ export default function App() {
               <div className="snap-tiles">
 
               <button className="snap-tile" onClick={() => setTab("budget")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">◑</span>Budget</div>
+                <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="budget" size={13} /></span>Budget</div>
                 {totalBudget > 0 ? (
                   <>
                     <div className="snap-tile-primary" style={{ color: cwBudgetPct >= 100 ? "var(--red)" : cwBudgetPct >= 80 ? "var(--amber)" : "var(--green)" }}>
@@ -1989,7 +2074,7 @@ export default function App() {
               </button>
 
               <button className="snap-tile" onClick={() => setTab("savings")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">⬡</span>Savings</div>
+                <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="savings" size={13} /></span>Savings</div>
                 <div className="snap-tile-primary">€{totalSavings.toLocaleString("en-IE")}</div>
                 <div className="snap-tile-sub">
                   {savingsPct !== null
@@ -1999,7 +2084,7 @@ export default function App() {
               </button>
 
               <button className="snap-tile" onClick={() => setTab("investments")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">↗</span>Portfolio</div>
+                <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="investments" size={13} /></span>Portfolio</div>
                 {portfolioLoading ? (
                   <>
                     <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>…</div>
@@ -2021,7 +2106,7 @@ export default function App() {
               </button>
 
               <button className="snap-tile" onClick={() => setTab("planner")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">▦</span>Planner</div>
+                <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="planner" size={13} /></span>Planner</div>
                 {nextMilestone ? (
                   <>
                     <div className="snap-tile-primary">{nextMilestone.name}</div>
@@ -2169,7 +2254,7 @@ export default function App() {
 
               {filteredTxns.length === 0 ? (
                 <EmptyState
-                  emoji="🔍"
+                  icon="search"
                   headline={transactions.length === 0 ? "No transactions yet" : "No matches"}
                   sub={transactions.length === 0 ? "Import a statement to get started" : "Try adjusting your search or filters"}
                 />
@@ -2370,7 +2455,7 @@ export default function App() {
             <div className="card">
               <div className="card-title">Vaults &amp; savings</div>
               {savings.length === 0 && (
-                <EmptyState emoji="📭" headline="Nothing here yet" sub="Import a Revolut CSV to populate your vaults" />
+                <EmptyState icon="savings" headline="Nothing here yet" sub="Import a Revolut CSV to populate your vaults" />
               )}
               {savings.map((v) => {
                 const isHolidays = v.name === "Holidays";
@@ -2595,7 +2680,7 @@ export default function App() {
 
             {portfolioError && (
               <div className="card">
-                <EmptyState emoji="⚠️" headline="Could not load portfolio" sub={portfolioError} />
+                <EmptyState icon="alert" headline="Could not load portfolio" sub={portfolioError} />
                 <div style={{ textAlign: "center", marginTop: 4 }}>
                   <button className="settings-btn" onClick={() => { setPortfolioError(null); loadPortfolio(); }}>
                     Retry
@@ -2623,7 +2708,7 @@ export default function App() {
 
                 {sortedPortfolio.length === 0 ? (
                   <div className="card">
-                    <EmptyState emoji="📈" headline="No positions yet" sub="Your Trading 212 portfolio is empty — positions will appear here once you invest" />
+                    <EmptyState icon="investments" headline="No positions yet" sub="Your Trading 212 portfolio is empty — positions will appear here once you invest" />
                   </div>
                 ) : (
                   <div className="inv-grid">
@@ -2737,7 +2822,7 @@ export default function App() {
             <div className="card">
               <div className="card-title">Savings contributions</div>
               {savings.length === 0 ? (
-                <EmptyState emoji="🏦" headline="No vaults yet" sub="Add savings vaults in the Savings tab to plan contributions here" />
+                <EmptyState icon="savings" headline="No vaults yet" sub="Add savings vaults in the Savings tab to plan contributions here" />
               ) : savings.map((v) => {
                 const needed = Math.max(0, v.target - v.balance);
                 const months = monthsUntil(planner.savings_dates[v.id]);
