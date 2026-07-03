@@ -2240,7 +2240,7 @@ export default function App() {
               {/* Summary row */}
               <div className="filter-summary">
                 <span className="filter-count">
-                  {filteredTxns.length} transaction{filteredTxns.length !== 1 ? "s" : ""}
+                  {hasActiveTxnFilters ? "Filtered" : "All"} · {filteredTxns.length} transaction{filteredTxns.length !== 1 ? "s" : ""}
                 </span>
                 <div className="filter-totals">
                   {filteredIncome > 0 && (
@@ -2277,9 +2277,9 @@ export default function App() {
           <>
             <TabHeader
               eyebrow="Budget"
-              sub={planner.monthly_income > 0
-                ? `€${fmt0(weeklyBudgetMonthly)}/mo of €${fmt0(plannerAvailable)} available`
-                : "weekly limits across all categories"}
+              sub={budgets.filter((b) => b.weekly > 0).length > 0
+                ? `weekly limits across ${budgets.filter((b) => b.weekly > 0).length} categories`
+                : "set your weekly spending limits below"}
             >
               <CountUp value={totalBudget} prefix="€" /><span className="tab-header-unit">/wk</span>
             </TabHeader>
@@ -2635,18 +2635,6 @@ export default function App() {
                 );
               })}
             </div>
-            {savings.length > 0 && (
-              <div className="card savings-summary-card">
-                <div className="savings-summary-total">
-                  €{totalSavings.toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <div className="savings-summary-label">
-                  {totalSavingsTarget > 0
-                    ? <>of <strong>€{totalSavingsTarget.toLocaleString("en-IE")}</strong> combined target · <span className="savings-summary-pct">{savingsPct?.toFixed(0)}%</span></>
-                    : "total saved across all vaults"}
-                </div>
-              </div>
-            )}
           </>
         )}
 
@@ -2655,9 +2643,7 @@ export default function App() {
           <>
             <TabHeader
               eyebrow="Investments"
-              sub={portfolio && portfolio.length
-                ? `${pfTotalPnL >= 0 ? "+" : "−"}€${fmt0(Math.abs(pfTotalPnL))} · ${pfPnLPct >= 0 ? "+" : ""}${pfPnLPct.toFixed(1)}% all time`
-                : (portfolioLoading ? "loading your portfolio…" : "your Trading 212 portfolio")}
+              sub={portfolio === null && portfolioLoading ? "loading your portfolio…" : "your Trading 212 portfolio"}
             >
               {portfolio === null
                 ? <span style={{ color: "var(--text-3)" }}>{portfolioLoading ? "…" : "—"}</span>
@@ -2954,10 +2940,6 @@ export default function App() {
             </TabHeader>
             <div className="card">
               <div className="card-title">Account</div>
-              <div className="settings-row">
-                <div className="settings-label">Signed in as</div>
-                <div className="settings-value">{session.user.email}</div>
-              </div>
               <div className="settings-row">
                 <div>
                   <div className="settings-label">Password</div>
