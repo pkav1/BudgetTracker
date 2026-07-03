@@ -2562,7 +2562,7 @@ export default function App() {
               </div>
             )}
             <div className="budget-tiles">
-              {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => {
+              {budgets.filter((b) => b.name !== "IOUs & Splits").map((b) => {
                 const isMonthly = b.cadence === "monthly";
                 const spent = budgetSpentFor(b);
                 const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
@@ -2576,7 +2576,7 @@ export default function App() {
                 };
                 const setCadence = (cadence) => {
                   if (cadence === b.cadence) return;
-                  setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, cadence } : p));
+                  setBudgets((prev) => prev.map((p) => p.name === b.name ? { ...p, cadence } : p));
                   saveBudget(b.limit_amount, cadence);
                 };
                 return (
@@ -2593,7 +2593,7 @@ export default function App() {
                         className="budget-input budget-tile-input"
                         onChange={(e) => {
                           const val = parseFloat(e.target.value) || 0;
-                          setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, limit_amount: val } : p));
+                          setBudgets((prev) => prev.map((p) => p.name === b.name ? { ...p, limit_amount: val } : p));
                           saveBudget(val, b.cadence);
                         }}
                       />
