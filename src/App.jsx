@@ -985,7 +985,6 @@ export default function App() {
   const [txnDateTo, setTxnDateTo] = useState("");
   const [filtersStuck, setFiltersStuck] = useState(false); // toolbar pinned to top after scroll
   const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
-  const filtersSentinelRef = useRef(null);
   const saveTimers = useRef({});
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
@@ -1066,22 +1065,24 @@ export default function App() {
     }
   }, [tab]);
 
-  // Collapse the Transactions filter toolbar once it becomes pinned to the top on scroll.
+  // Collapse the Transactions filter toolbar once scrolled past the header.
+  // Uses scrollY with hysteresis (collapse >120, expand <60) so it can't flip-flop.
   useEffect(() => {
     if (tab !== "transactions") { setFiltersStuck(false); return; }
-    const el = filtersSentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        const stuck = !entry.isIntersecting;
-        setFiltersStuck(stuck);
-        if (!stuck) setFiltersOpen(false); // back at top → reset to condensed default for next scroll
-      },
-      { threshold: 0 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const y = window.scrollY;
+      setFiltersStuck((prev) => (prev ? y > 60 : y > 120));
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    update();
+    return () => { window.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf); };
   }, [tab]);
+
+  // Reset the manual open state whenever the toolbar unsticks (back near the top).
+  useEffect(() => { if (!filtersStuck) setFiltersOpen(false); }, [filtersStuck]);
 
   function debounceSave(key, fn, delay = 600) {
     clearTimeout(saveTimers.current[key]);
@@ -2185,8 +2186,7 @@ export default function App() {
                 {headerNet >= 0 ? "+" : "−"}<CountUp value={Math.abs(headerNet)} prefix="€" />
               </span>
             </TabHeader>
-            {/* Filters card — collapses to search + toggle once pinned on scroll */}
-            <div ref={filtersSentinelRef} className="txn-sentinel" />
+            {/* Filters card — collapses to search + toggle once scrolled */}
             <div className={`card txn-filters${filtersStuck && !filtersOpen ? " collapsed" : ""}`}>
               <div className="txn-filters-bar">
                 <input

@@ -52,6 +52,9 @@ body {
   background: var(--bg);
   color: var(--text-1);
   min-height: 100vh;
+  /* Prevent the browser from re-adjusting scroll when the sticky filter toolbar
+     collapses/expands — that caused a scroll feedback loop on Transactions. */
+  overflow-anchor: none;
 }
 
 /* ── Stage 0 foundation ──────────────────────────────────────────────────────── */
@@ -186,15 +189,8 @@ input, select, textarea, button { font-family: inherit; }
   position: sticky;
   top: 0;
   z-index: 20;
-  max-height: calc(100vh - 1rem);
-  overflow-y: auto;
 }
-@media (max-width: 768px) {
-  /* keep the toolbar from eating the screen on mobile — cap it and scroll inside */
-  .txn-filters { max-height: 45vh; }
-}
-/* Condensed toolbar (once pinned): just the search bar + a Filters toggle */
-.txn-sentinel { height: 1px; }
+/* Condensed toolbar (once scrolled): just the search bar + a Filters toggle */
 .txn-filters-bar { display: flex; align-items: center; gap: 8px; }
 .txn-filters:not(.collapsed) .txn-filters-bar { margin-bottom: 14px; }
 .txn-filters-bar .txn-search-input { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
