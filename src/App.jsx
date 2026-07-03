@@ -1703,6 +1703,9 @@ export default function App() {
   const headerNet = headerIn - headerOut;
   const latestTxnDate = transactions.reduce((m, t) => (!m || t.date > m ? t.date : m), null);
   const fmt0 = (n) => n.toLocaleString("en-IE", { maximumFractionDigits: 0 });
+  // Current-week spend per category (always this week, independent of the Dashboard's week nav)
+  const budgetWeekSpent = {};
+  cwSpendTxns.forEach((t) => { budgetWeekSpent[t.category] = (budgetWeekSpent[t.category] || 0) + Math.abs(t.amount); });
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1950,7 +1953,7 @@ export default function App() {
                     const spent = bycat[b.name] || 0;
                     if (!b.weekly && !spent) return null;
                     const pct = b.weekly > 0 ? Math.min(100, (spent / b.weekly) * 100) : 0;
-                    const color = b.weekly > 0 ? (pct > 100 ? "#e24b4a" : pct > 80 ? "#ba7517" : b.color) : b.color;
+                    const color = b.weekly > 0 ? (spent > b.weekly ? "#e24b4a" : spent > b.weekly * 0.8 ? "#ba7517" : b.color) : b.color;
                     return (
                       <div className="budget-row" key={b.name}>
                         <div className="budget-label">{b.icon}<span>{b.name}</span></div>
@@ -2196,26 +2199,45 @@ export default function App() {
                 </div>
               </div>
             )}
-            {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => (
-              <div className="budget-row budget-edit-row" key={b.name}>
-                <div className="budget-label">{b.icon}<span>{b.name}</span></div>
-                <div />
-                <div className="budget-limit-label">weekly €</div>
-                <input
-                  type="number" min="0" step="5" value={b.weekly}
-                  className="budget-input"
-                  onChange={(e) => {
-                    const uid = session.user.id;
-                    const val = parseFloat(e.target.value) || 0;
-                    const { name, color } = b;
-                    setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, weekly: val } : p));
-                    debounceSave(`budget-${name}`, () => {
-                      supabase.from("budgets").upsert({ name, weekly: val, color, user_id: uid }, { onConflict: "name,user_id" });
-                    });
-                  }}
-                />
-              </div>
-            ))}
+            <div className="budget-tiles">
+              {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => {
+                const spent = budgetWeekSpent[b.name] || 0;
+                const pct = b.weekly > 0 ? Math.min(100, (spent / b.weekly) * 100) : 0;
+                const barColor = b.weekly > 0 ? (spent > b.weekly ? "#e24b4a" : spent > b.weekly * 0.8 ? "#ba7517" : b.color) : b.color;
+                return (
+                  <div className="budget-tile" key={b.name}>
+                    <div className="budget-tile-head">
+                      <span className="budget-tile-dot" style={{ background: b.color }} />
+                      <span className="budget-tile-name">{b.icon} {b.name}</span>
+                    </div>
+                    <div className="budget-tile-input-row">
+                      <span className="budget-tile-currency">€</span>
+                      <input
+                        type="number" min="0" step="5" value={b.weekly}
+                        className="budget-input budget-tile-input"
+                        onChange={(e) => {
+                          const uid = session.user.id;
+                          const val = parseFloat(e.target.value) || 0;
+                          const { name, color } = b;
+                          setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, weekly: val } : p));
+                          debounceSave(`budget-${name}`, () => {
+                            supabase.from("budgets").upsert({ name, weekly: val, color, user_id: uid }, { onConflict: "name,user_id" });
+                          });
+                        }}
+                      />
+                      <span className="budget-tile-unit">/wk</span>
+                    </div>
+                    <div className="progress-wrap">
+                      {b.weekly > 0 && <div className="progress-bar" style={{ width: pct + "%", background: barColor }} />}
+                    </div>
+                    <div className="budget-tile-usage">
+                      <span style={{ color: barColor }}>€{spent.toFixed(0)}</span>
+                      <span className="budget-tile-usage-sub">{b.weekly > 0 ? `spent of €${b.weekly}` : "no limit set"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             </div>
           </>
         )}

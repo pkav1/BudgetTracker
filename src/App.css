@@ -151,6 +151,35 @@ input, select, textarea, button { font-family: inherit; }
   .inv-grid { grid-template-columns: 1fr; }
 }
 
+/* ── Budget tiles (Stage 2) ─────────────────────────────────────────────────── */
+.budget-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+.budget-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.budget-tile-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.budget-tile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.budget-tile-name {
+  font-size: 13px; font-weight: 600; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.budget-tile-input-row { display: flex; align-items: center; gap: 5px; }
+.budget-tile-currency { font-size: 13px; color: var(--text-3); }
+.budget-tile-input { width: 72px; text-align: left; background: var(--surface); }
+.budget-tile-unit { font-size: 12px; color: var(--text-3); }
+.budget-tile .progress-wrap { background: var(--border); }
+.budget-tile-usage { display: flex; align-items: baseline; gap: 5px; font-size: 12px; font-weight: 700; }
+.budget-tile-usage-sub { color: var(--text-3); font-weight: 400; }
+
 .app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
