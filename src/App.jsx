@@ -1214,10 +1214,45 @@ export default function App() {
   // Reset the manual open state whenever the toolbar unsticks (back near the top).
   useEffect(() => { if (!filtersStuck) setFiltersOpen(false); }, [filtersStuck]);
 
+  // Debounced save that also remembers the pending write so it can be flushed
+  // immediately (on tab change / sign-out / page hide) before it would be lost.
   function debounceSave(key, fn, delay = 600) {
-    clearTimeout(saveTimers.current[key]);
-    saveTimers.current[key] = setTimeout(fn, delay);
+    const entry = saveTimers.current[key];
+    if (entry) clearTimeout(entry.timer);
+    saveTimers.current[key] = {
+      fn,
+      timer: setTimeout(() => { delete saveTimers.current[key]; fn(); }, delay),
+    };
   }
+
+  // Fire every pending debounced write right now (cancels their timers).
+  function flushSaves() {
+    const timers = saveTimers.current;
+    for (const key of Object.keys(timers)) {
+      const entry = timers[key];
+      if (!entry) continue;
+      clearTimeout(entry.timer);
+      delete timers[key];
+      try { entry.fn(); } catch { /* best-effort */ }
+    }
+  }
+
+  // Flush pending saves when leaving a tab, so an edit made just before
+  // switching tabs isn't lost with its timer still pending.
+  useEffect(() => () => flushSaves(), [tab]);
+
+  // Flush on page hide / unload (tab close, refresh, backgrounding). beforeunload
+  // is best-effort for a hard close; visibilitychange fires earlier and more reliably.
+  useEffect(() => {
+    const onBeforeUnload = () => flushSaves();
+    const onVisibility = () => { if (document.visibilityState === "hidden") flushSaves(); };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
 
   // Auth: check existing session on mount and listen for changes
   useEffect(() => {
@@ -1990,6 +2025,7 @@ export default function App() {
         onBypass={async (lockedOut) => {
           if (lockedOut) {
             // Too many wrong attempts — sign out so they must re-authenticate properly
+            flushSaves();
             await supabase.auth.signOut();
           } else {
             // Voluntary bypass (forgot PIN, wants to use email & password to get in and fix it)
@@ -2044,7 +2080,7 @@ export default function App() {
             <span className="sidebar-user-avatar">{session.user.email[0].toUpperCase()}</span>
             <span className="sidebar-user-email">{session.user.email}</span>
           </div>
-          <button className="sidebar-signout" onClick={() => supabase.auth.signOut()}>Sign out</button>
+          <button className="sidebar-signout" onClick={() => { flushSaves(); supabase.auth.signOut(); }}>Sign out</button>
         </div>
       </aside>
       <nav className="bottom-nav">
