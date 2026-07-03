@@ -2582,7 +2582,7 @@ export default function App() {
                     <EmptyState emoji="📈" headline="No positions yet" sub="Your Trading 212 portfolio is empty — positions will appear here once you invest" />
                   </div>
                 ) : (
-                  <>
+                  <div className="inv-grid">
                     <div className="card">
                       <div className="card-title inv-title-row">
                         <span>Holdings</span>
@@ -2626,7 +2626,7 @@ export default function App() {
                         />
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </>
             )}

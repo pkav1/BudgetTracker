@@ -140,6 +140,17 @@ input, select, textarea, button { font-family: inherit; }
   .planner-summary-pane { position: static; top: auto; }
 }
 
+/* ── Investments two-column (Stage 2) ───────────────────────────────────────── */
+.inv-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .inv-grid { grid-template-columns: 1fr; }
+}
+
 .app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */
