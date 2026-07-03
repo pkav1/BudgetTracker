@@ -121,6 +121,25 @@ input, select, textarea, button { font-family: inherit; }
 .tab-header-sub { font-size: 13px; color: var(--text-2); margin-top: 6px; }
 .tab-header-action { flex-shrink: 0; }
 
+/* ── Planner two-pane (Stage 2) ─────────────────────────────────────────────── */
+.planner-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1rem;
+  align-items: start;
+}
+.planner-inputs { min-width: 0; }
+.planner-summary-pane {
+  position: sticky;
+  top: 1.25rem;
+  align-self: start;
+  min-width: 0;
+}
+@media (max-width: 960px) {
+  .planner-grid { grid-template-columns: 1fr; }
+  .planner-summary-pane { position: static; top: auto; }
+}
+
 .app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */

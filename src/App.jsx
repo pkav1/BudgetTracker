@@ -2644,6 +2644,8 @@ export default function App() {
                 {plannerAvailable < 0 ? "−" : ""}<CountUp value={Math.abs(plannerAvailable)} prefix="€" />
               </span>
             </TabHeader>
+            <div className="planner-grid">
+              <div className="planner-inputs">
             {/* Monthly income */}
             <div className="card">
               <div className="card-title">Monthly take-home pay</div>
@@ -2752,7 +2754,9 @@ export default function App() {
                 )}
               </div>
             </div>
+              </div>
 
+              <div className="planner-summary-pane">
             {/* Spending budget summary */}
             <div className="card">
               <div className="card-title">Spending budget</div>
@@ -2808,6 +2812,8 @@ export default function App() {
                 </div>
               </div>
             )}
+              </div>
+            </div>
           </>
         )}
 
