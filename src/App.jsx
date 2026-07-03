@@ -838,36 +838,10 @@ function AuthScreen() {
 
   return (
     <div className="auth-wrap">
-      <div className="auth-chart" aria-hidden="true">
-        <div className="auth-chart-tilt">
-          <svg className="auth-chart-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="ledgerChartFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="currentColor" stopOpacity="0.32" />
-                <stop offset="1" stopColor="currentColor" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M0,110 L40,96 L80,120 L120,88 L160,108 L200,74 L240,100 L280,64 L320,92 L360,70 L400,104 L440,82 L480,116 L520,90 L560,120 L600,110 L640,96 L680,120 L720,88 L760,108 L800,74 L840,100 L880,64 L920,92 L960,70 L1000,104 L1040,82 L1080,116 L1120,90 L1160,120 L1200,110 L1200,200 L0,200 Z"
-              fill="url(#ledgerChartFill)"
-            />
-            <path
-              d="M0,110 L40,96 L80,120 L120,88 L160,108 L200,74 L240,100 L280,64 L320,92 L360,70 L400,104 L440,82 L480,116 L520,90 L560,120 L600,110 L640,96 L680,120 L720,88 L760,108 L800,74 L840,100 L880,64 L920,92 L960,70 L1000,104 L1040,82 L1080,116 L1120,90 L1160,120 L1200,110"
-              fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke"
-              strokeLinejoin="round" strokeLinecap="round"
-            />
-          </svg>
-        </div>
-      </div>
+      <AuthChartBackdrop />
       <div className="auth-card">
         <div className="auth-brand">
-          <span className="auth-mark" aria-hidden="true">
-            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-              <path d="M6 5 V22 H24" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
-              <path d="M8.5 18.5 L13 13 L17 15.5 L23 7.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M23 7.5 H18.7 M23 7.5 V11.8" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
+          <LedgerMark />
           <h1 className="auth-wordmark">Ledger</h1>
           <p className="auth-tagline">See everything you own, in one view</p>
         </div>
@@ -1000,6 +974,40 @@ function DashboardSkeleton() {
 
 const PIN_MAX_ATTEMPTS = 5;
 
+// Ambient rising-line backdrop shared by the login and PIN screens.
+function AuthChartBackdrop() {
+  const line = "M0,110 L40,96 L80,120 L120,88 L160,108 L200,74 L240,100 L280,64 L320,92 L360,70 L400,104 L440,82 L480,116 L520,90 L560,120 L600,110 L640,96 L680,120 L720,88 L760,108 L800,74 L840,100 L880,64 L920,92 L960,70 L1000,104 L1040,82 L1080,116 L1120,90 L1160,120 L1200,110";
+  return (
+    <div className="auth-chart" aria-hidden="true">
+      <div className="auth-chart-tilt">
+        <svg className="auth-chart-svg" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="ledgerChartFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="currentColor" stopOpacity="0.32" />
+              <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={`${line} L1200,200 L0,200 Z`} fill="url(#ledgerChartFill)" />
+          <path d={line} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// Ledger logo mark (rising-line inside the accent tile) — shared by login + PIN.
+function LedgerMark() {
+  return (
+    <span className="auth-mark" aria-hidden="true">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <path d="M6 5 V22 H24" stroke="#fff" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+        <path d="M8.5 18.5 L13 13 L17 15.5 L23 7.5" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M23 7.5 H18.7 M23 7.5 V11.8" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 function PinScreen({ onUnlock, onBypass }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(null);
@@ -1027,10 +1035,12 @@ function PinScreen({ onUnlock, onBypass }) {
 
   return (
     <div className="auth-wrap">
+      <AuthChartBackdrop />
       <div className="auth-card">
-        <div className="auth-logo">
-          <span className="auth-logo-mark">B</span>
-          <span className="auth-logo-wordmark">Budget</span>
+        <div className="auth-brand">
+          <LedgerMark />
+          <h1 className="auth-wordmark">Ledger</h1>
+          <p className="auth-tagline">Enter your PIN to unlock</p>
         </div>
         <div className="pin-dots">
           {Array.from({ length: filledDots }, (_, i) => (
@@ -2812,8 +2822,8 @@ export default function App() {
                           </div>
                         )}
                         <div className="savings-balance-line" style={{ marginTop: 6 }}>
-                          <span className="savings-balance-amount">€{v.balance.toFixed(2)}</span>
-                          {" of €"}
+                          <span className="savings-balance-amount">€{v.balance % 1 === 0 ? v.balance : v.balance.toFixed(2)}</span>
+                          {" of "}<span className="savings-target-currency">€</span>
                           <input
                             type="number" min="0" step="50" value={v.target || ""}
                             placeholder="—"

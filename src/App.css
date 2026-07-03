@@ -772,9 +772,12 @@ input, select, textarea, button { font-family: inherit; }
   font-size: 22px; font-weight: 700; color: var(--text-1);
   letter-spacing: -0.5px; font-variant-numeric: tabular-nums;
 }
+.savings-target-currency {
+  font-size: 22px; font-weight: 700; color: var(--text-1); letter-spacing: -0.5px;
+}
 .savings-target-inline {
-  font-family: inherit; font-size: 17px; font-weight: 600; color: var(--text-1);
-  font-variant-numeric: tabular-nums;
+  font-family: inherit; font-size: 22px; font-weight: 700; color: var(--text-1);
+  letter-spacing: -0.5px; font-variant-numeric: tabular-nums;
   border: none; border-bottom: 1px dashed transparent;
   background: none; padding: 0 1px; outline: none; text-align: left;
   -moz-appearance: textfield; appearance: textfield;
