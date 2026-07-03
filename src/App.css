@@ -181,6 +181,44 @@ input, select, textarea, button { font-family: inherit; }
 .budget-tile-usage { display: flex; align-items: baseline; gap: 5px; font-size: 12px; font-weight: 700; }
 .budget-tile-usage-sub { color: var(--text-3); font-weight: 400; }
 
+/* ── Transactions: sticky filter toolbar + day grouping (Stage 2) ───────────── */
+.txn-filters {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+}
+@media (max-width: 768px) {
+  /* keep the toolbar from eating the screen on mobile — cap it and scroll inside */
+  .txn-filters { max-height: 45vh; }
+}
+.txn-day-group:first-of-type .txn-day-header { padding-top: 2px; }
+.txn-day-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  padding: 12px 0 7px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* ── Dashboard two-column (Stage 2) ─────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.dash-main, .dash-side { min-width: 0; }
+/* 4 summary tiles become a 2×2 inside the narrower right column */
+.dash-side .snap-tiles { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 960px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+
 .app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────────── */

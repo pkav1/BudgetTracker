@@ -1167,6 +1167,14 @@ export default function App() {
   const filteredSpend  = filteredTxns.filter(t => t.amount < 0 && t.category !== "Transfers").reduce((s, t) => s + Math.abs(t.amount), 0);
   const filteredIncome = filteredTxns.filter(t => t.amount > 0 && t.category !== "Transfers").reduce((s, t) => s + t.amount, 0);
   const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
+  // Group filtered transactions by calendar day, preserving the newest-first order
+  const txnGroups = [];
+  filteredTxns.forEach((t) => {
+    const key = t.date.toISOString().slice(0, 10);
+    const last = txnGroups[txnGroups.length - 1];
+    if (last && last.key === key) last.txns.push(t);
+    else txnGroups.push({ key, date: t.date, txns: [t] });
+  });
 
   const { start, end } = getWeekRange(weekOffset);
   const weekTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.amount < 0);
@@ -1844,78 +1852,6 @@ export default function App() {
               )}
             </div>
 
-            {/* ── Overview tiles ── */}
-            <div className="snap-tiles">
-
-              <button className="snap-tile" onClick={() => setTab("budget")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">◑</span>Budget</div>
-                {totalBudget > 0 ? (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: cwBudgetPct >= 100 ? "var(--red)" : cwBudgetPct >= 80 ? "var(--amber)" : "var(--green)" }}>
-                      €{cwTotalSpent.toFixed(0)}
-                    </div>
-                    <div className="snap-tile-sub">{cwBudgetPct.toFixed(0)}% · €{totalBudget}/wk budget</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
-                    <div className="snap-tile-sub">No budgets set</div>
-                  </>
-                )}
-              </button>
-
-              <button className="snap-tile" onClick={() => setTab("savings")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">⬡</span>Savings</div>
-                <div className="snap-tile-primary">€{totalSavings.toLocaleString("en-IE")}</div>
-                <div className="snap-tile-sub">
-                  {savingsPct !== null
-                    ? `${savingsPct.toFixed(0)}% of €${totalSavingsTarget.toLocaleString()} target`
-                    : "across all vaults"}
-                </div>
-              </button>
-
-              <button className="snap-tile" onClick={() => setTab("investments")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">↗</span>Portfolio</div>
-                {portfolioLoading ? (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>…</div>
-                    <div className="snap-tile-sub">Loading</div>
-                  </>
-                ) : portfolio !== null ? (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: pfTotalPnL >= 0 ? "var(--green)" : "var(--red)" }}>
-                      {pfTotalPnL >= 0 ? "+" : ""}€{pfTotalPnL.toFixed(2)}
-                    </div>
-                    <div className="snap-tile-sub">{pfPnLPct >= 0 ? "+" : ""}{pfPnLPct.toFixed(2)}% return</div>
-                  </>
-                ) : portfolioError ? (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
-                    <div className="snap-tile-sub">Could not load</div>
-                  </>
-                ) : null}
-              </button>
-
-              <button className="snap-tile" onClick={() => setTab("planner")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon">▦</span>Planner</div>
-                {nextMilestone ? (
-                  <>
-                    <div className="snap-tile-primary">{nextMilestone.name}</div>
-                    <div className="snap-tile-sub">
-                      {nextMilestone.needed > 0 ? `€${nextMilestone.needed.toFixed(0)} to go · ` : "on track · "}
-                      {nextMilestone.yearMonth}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)" }}>No upcoming goals</div>
-                    <div className="snap-tile-sub">Set a target date in Planner</div>
-                  </>
-                )}
-              </button>
-
-            </div>
-
             <div className="week-nav">
               <button className="nav-btn" onClick={() => setWeekOffset((w) => viewMode === "monthly" ? w - 4 : w - 1)}>‹</button>
               <span className="week-label">{viewMode === "monthly" ? monthLabel : fmtWeekLabel(weekOffset)}</span>
@@ -1933,6 +1869,8 @@ export default function App() {
               </div>
             )}
 
+            <div className="dash-grid">
+              <div className="dash-main">
             {viewMode === "weekly" ? (
               <>
                 <div className="metric-row metric-row-2">
@@ -2027,6 +1965,80 @@ export default function App() {
                 </div>
               </>
             )}
+              </div>
+
+              <div className="dash-side">
+              {/* ── Overview tiles ── */}
+              <div className="snap-tiles">
+
+              <button className="snap-tile" onClick={() => setTab("budget")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">◑</span>Budget</div>
+                {totalBudget > 0 ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: cwBudgetPct >= 100 ? "var(--red)" : cwBudgetPct >= 80 ? "var(--amber)" : "var(--green)" }}>
+                      €{cwTotalSpent.toFixed(0)}
+                    </div>
+                    <div className="snap-tile-sub">{cwBudgetPct.toFixed(0)}% · €{totalBudget}/wk budget</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
+                    <div className="snap-tile-sub">No budgets set</div>
+                  </>
+                )}
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("savings")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">⬡</span>Savings</div>
+                <div className="snap-tile-primary">€{totalSavings.toLocaleString("en-IE")}</div>
+                <div className="snap-tile-sub">
+                  {savingsPct !== null
+                    ? `${savingsPct.toFixed(0)}% of €${totalSavingsTarget.toLocaleString()} target`
+                    : "across all vaults"}
+                </div>
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("investments")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">↗</span>Portfolio</div>
+                {portfolioLoading ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>…</div>
+                    <div className="snap-tile-sub">Loading</div>
+                  </>
+                ) : portfolio !== null ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: pfTotalPnL >= 0 ? "var(--green)" : "var(--red)" }}>
+                      {pfTotalPnL >= 0 ? "+" : ""}€{pfTotalPnL.toFixed(2)}
+                    </div>
+                    <div className="snap-tile-sub">{pfPnLPct >= 0 ? "+" : ""}{pfPnLPct.toFixed(2)}% return</div>
+                  </>
+                ) : portfolioError ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
+                    <div className="snap-tile-sub">Could not load</div>
+                  </>
+                ) : null}
+              </button>
+
+              <button className="snap-tile" onClick={() => setTab("planner")}>
+                <div className="snap-tile-header"><span className="snap-tile-icon">▦</span>Planner</div>
+                {nextMilestone ? (
+                  <>
+                    <div className="snap-tile-primary">{nextMilestone.name}</div>
+                    <div className="snap-tile-sub">
+                      {nextMilestone.needed > 0 ? `€${nextMilestone.needed.toFixed(0)} to go · ` : "on track · "}
+                      {nextMilestone.yearMonth}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)" }}>No upcoming goals</div>
+                    <div className="snap-tile-sub">Set a target date in Planner</div>
+                  </>
+                )}
+              </button>
+
+              </div>
 
             {balanceDays.length > 0 && (
               <div className="card">
@@ -2050,6 +2062,8 @@ export default function App() {
                 <BarChart labels={trendWeeks.map((w) => w.label)} datasets={trendDatasets} darkMode={darkMode} />
               </div>
             </div>
+              </div>
+            </div>
           </>
         )}
 
@@ -2065,7 +2079,7 @@ export default function App() {
               </span>
             </TabHeader>
             {/* Filters card */}
-            <div className="card">
+            <div className="card txn-filters">
               <input
                 type="search"
                 className="txn-search-input"
@@ -2160,7 +2174,14 @@ export default function App() {
                   sub={transactions.length === 0 ? "Import a statement to get started" : "Try adjusting your search or filters"}
                 />
               ) : (
-                filteredTxns.map(t => <TxnRow key={t.id} t={t} {...txnRowProps} />)
+                txnGroups.map((g) => (
+                  <div className="txn-day-group" key={g.key}>
+                    <div className="txn-day-header">
+                      {g.date.toLocaleDateString("en-IE", { weekday: "long" })}, {g.date.toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
+                    </div>
+                    {g.txns.map((t) => <TxnRow key={t.id} t={t} {...txnRowProps} />)}
+                  </div>
+                ))
               )}
             </div>
           </>
