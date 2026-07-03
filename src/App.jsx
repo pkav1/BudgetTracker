@@ -1117,6 +1117,7 @@ export default function App() {
   const [recurringOpen, setRecurringOpen] = useState(false); // collapsible recurring panel
   const [rulesExpanded, setRulesExpanded] = useState(false); // Settings: show all merchant rules
   const saveTimers = useRef({});
+  const inFlightSaves = useRef(new Set()); // writes that have fired but not yet completed
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
   });
@@ -1215,34 +1216,43 @@ export default function App() {
   // Reset the manual open state whenever the toolbar unsticks (back near the top).
   useEffect(() => { if (!filtersStuck) setFiltersOpen(false); }, [filtersStuck]);
 
-  // Debounced save that also remembers the pending write so it can be flushed
-  // immediately (on tab change / sign-out / page hide) before it would be lost.
+  // Track a write's promise while it's in flight, so flushSaves() can await it even
+  // after its debounce timer has already fired it off — otherwise a write that left
+  // the debounce window becomes an untracked fire-and-forget that sign-out can race.
+  function trackSave(result) {
+    if (!result || typeof result.then !== "function") return;
+    const p = Promise.resolve(result);
+    inFlightSaves.current.add(p);
+    p.finally(() => inFlightSaves.current.delete(p));
+  }
+
+  // Debounced save that remembers the pending write; when the timer fires, the write
+  // is handed to trackSave so it stays awaitable until it actually completes.
   function debounceSave(key, fn, delay = 600) {
     const entry = saveTimers.current[key];
     if (entry) clearTimeout(entry.timer);
     saveTimers.current[key] = {
       fn,
-      timer: setTimeout(() => { delete saveTimers.current[key]; fn(); }, delay),
+      timer: setTimeout(() => {
+        delete saveTimers.current[key];
+        try { trackSave(fn()); } catch { /* best-effort */ }
+      }, delay),
     };
   }
 
-  // Fire every pending debounced write right now (cancels their timers) and return
-  // a promise that resolves once they've all completed — so sign-out can await
-  // confirmation, not just initiation. Each fn must return its Supabase promise.
+  // Fire every still-pending debounced write now, then wait for ALL writes — the ones
+  // just fired plus any already in flight — to fully complete, so sign-out can await
+  // confirmation, not just initiation.
   function flushSaves() {
     const timers = saveTimers.current;
-    const pending = [];
     for (const key of Object.keys(timers)) {
       const entry = timers[key];
       if (!entry) continue;
       clearTimeout(entry.timer);
       delete timers[key];
-      try {
-        const result = entry.fn();
-        if (result && typeof result.then === "function") pending.push(result);
-      } catch { /* best-effort */ }
+      try { trackSave(entry.fn()); } catch { /* best-effort */ }
     }
-    return Promise.all(pending);
+    return Promise.all([...inFlightSaves.current]);
   }
 
   // Flush pending saves when leaving a tab, so an edit made just before
