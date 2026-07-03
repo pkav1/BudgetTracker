@@ -1115,6 +1115,7 @@ export default function App() {
   const [filtersStuck, setFiltersStuck] = useState(false); // toolbar pinned to top after scroll
   const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
   const [recurringOpen, setRecurringOpen] = useState(false); // collapsible recurring panel
+  const [rulesExpanded, setRulesExpanded] = useState(false); // Settings: show all merchant rules
   const saveTimers = useRef({});
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
@@ -3339,18 +3340,27 @@ export default function App() {
             </div>
 
             <div className="card">
-              <div className="card-title">Merchant rules</div>
+              <div className="card-title">Merchant rules{merchantRules.length > 0 ? ` · ${merchantRules.length}` : ""}</div>
               {merchantRules.length === 0 ? (
                 <div className="empty-state">No rules yet — recategorise a transaction and click "Yes" to save one.</div>
-              ) : merchantRules.map((r) => (
-                <div key={r.id} className="settings-row">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="settings-value" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant}</div>
-                    <div className="settings-hint">→ {r.category}</div>
-                  </div>
-                  <button className="remove-btn" onClick={() => deleteMerchantRule(r.id)}>✕</button>
-                </div>
-              ))}
+              ) : (
+                <>
+                  {(rulesExpanded ? merchantRules : merchantRules.slice(0, 5)).map((r) => (
+                    <div key={r.id} className="settings-row">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="settings-value" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.merchant}</div>
+                        <div className="settings-hint">→ {r.category}</div>
+                      </div>
+                      <button className="remove-btn" onClick={() => deleteMerchantRule(r.id)}>✕</button>
+                    </div>
+                  ))}
+                  {merchantRules.length > 5 && (
+                    <button className="rules-toggle" onClick={() => setRulesExpanded((o) => !o)}>
+                      {rulesExpanded ? "Show less" : `Show all ${merchantRules.length}`}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="card">
