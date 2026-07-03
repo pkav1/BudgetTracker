@@ -983,6 +983,9 @@ export default function App() {
   const [txnCategories, setTxnCategories] = useState([]);
   const [txnDateFrom, setTxnDateFrom] = useState("");
   const [txnDateTo, setTxnDateTo] = useState("");
+  const [filtersStuck, setFiltersStuck] = useState(false); // toolbar pinned to top after scroll
+  const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
+  const filtersSentinelRef = useRef(null);
   const saveTimers = useRef({});
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
@@ -1061,6 +1064,23 @@ export default function App() {
     if ((tab === "investments" || tab === "dashboard") && portfolio === null && !portfolioLoading && !portfolioError) {
       loadPortfolio();
     }
+  }, [tab]);
+
+  // Collapse the Transactions filter toolbar once it becomes pinned to the top on scroll.
+  useEffect(() => {
+    if (tab !== "transactions") { setFiltersStuck(false); return; }
+    const el = filtersSentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        const stuck = !entry.isIntersecting;
+        setFiltersStuck(stuck);
+        if (!stuck) setFiltersOpen(false); // back at top → reset to condensed default for next scroll
+      },
+      { threshold: 0 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
   }, [tab]);
 
   function debounceSave(key, fn, delay = 600) {
@@ -1244,6 +1264,8 @@ export default function App() {
   const filteredSpend  = filteredTxns.filter(t => t.amount < 0 && t.category !== "Transfers").reduce((s, t) => s + Math.abs(t.amount), 0);
   const filteredIncome = filteredTxns.filter(t => t.amount > 0 && t.category !== "Transfers").reduce((s, t) => s + t.amount, 0);
   const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
+  // Active filters excluding search (search stays visible in the condensed bar)
+  const activeFilterCount = txnAccounts.length + txnCategories.length + (txnDateFrom ? 1 : 0) + (txnDateTo ? 1 : 0);
   // Group filtered transactions by calendar day, preserving the newest-first order
   const txnGroups = [];
   filteredTxns.forEach((t) => {
@@ -2163,75 +2185,95 @@ export default function App() {
                 {headerNet >= 0 ? "+" : "−"}<CountUp value={Math.abs(headerNet)} prefix="€" />
               </span>
             </TabHeader>
-            {/* Filters card */}
-            <div className="card txn-filters">
-              <input
-                type="search"
-                className="txn-search-input"
-                placeholder="Search by merchant or description…"
-                value={txnSearch}
-                onChange={e => setTxnSearch(e.target.value)}
-              />
-
-              {/* Account filter */}
-              <div className="filter-section">
-                <div className="filter-label">Account</div>
-                <div className="filter-chips">
-                  {["Revolut", "BOI"].map(a => (
-                    <button
-                      key={a}
-                      className={`filter-chip${txnAccounts.includes(a) ? " active" : ""}`}
-                      onClick={() => toggleTxnAccount(a)}
-                    >{a}</button>
-                  ))}
-                </div>
+            {/* Filters card — collapses to search + toggle once pinned on scroll */}
+            <div ref={filtersSentinelRef} className="txn-sentinel" />
+            <div className={`card txn-filters${filtersStuck && !filtersOpen ? " collapsed" : ""}`}>
+              <div className="txn-filters-bar">
+                <input
+                  type="search"
+                  className="txn-search-input"
+                  placeholder="Search by merchant or description…"
+                  value={txnSearch}
+                  onChange={e => setTxnSearch(e.target.value)}
+                />
+                {filtersStuck && (
+                  <button
+                    className="txn-filters-toggle"
+                    onClick={() => setFiltersOpen(o => !o)}
+                    aria-expanded={filtersOpen}
+                  >
+                    {filtersOpen ? "Hide filters" : (
+                      <>Filters{activeFilterCount > 0 && (
+                        <span className="txn-filters-badge" title={`${activeFilterCount} filter${activeFilterCount !== 1 ? "s" : ""} active`}>{activeFilterCount}</span>
+                      )}</>
+                    )}
+                  </button>
+                )}
               </div>
 
-              {/* Category filter */}
-              <div className="filter-section">
-                <div className="filter-label">Category</div>
-                <div className="filter-chips">
-                  {CATEGORIES.map(c => {
-                    const on = txnCategories.includes(c.name);
-                    return (
-                      <button
-                        key={c.name}
-                        className={`filter-chip${on ? " active" : ""}`}
-                        style={on ? { background: c.color + "22", borderColor: c.color } : {}}
-                        onClick={() => toggleTxnCategory(c.name)}
-                      >
-                        <span className="filter-chip-dot" style={on ? { background: c.color } : {}} />
-                        {c.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {!(filtersStuck && !filtersOpen) && (
+                <>
+                  {/* Account filter */}
+                  <div className="filter-section">
+                    <div className="filter-label">Account</div>
+                    <div className="filter-chips">
+                      {["Revolut", "BOI"].map(a => (
+                        <button
+                          key={a}
+                          className={`filter-chip${txnAccounts.includes(a) ? " active" : ""}`}
+                          onClick={() => toggleTxnAccount(a)}
+                        >{a}</button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Date range */}
-              <div className="filter-section">
-                <div className="filter-label">Date range</div>
-                <div className="import-date-range" style={{ alignItems: "center" }}>
-                  <div className="import-date-field">
-                    <label>From</label>
-                    <input type="date" className="import-date-input" value={txnDateFrom} onChange={e => setTxnDateFrom(e.target.value)} />
+                  {/* Category filter */}
+                  <div className="filter-section">
+                    <div className="filter-label">Category</div>
+                    <div className="filter-chips">
+                      {CATEGORIES.map(c => {
+                        const on = txnCategories.includes(c.name);
+                        return (
+                          <button
+                            key={c.name}
+                            className={`filter-chip${on ? " active" : ""}`}
+                            style={on ? { background: c.color + "22", borderColor: c.color } : {}}
+                            onClick={() => toggleTxnCategory(c.name)}
+                          >
+                            <span className="filter-chip-dot" style={on ? { background: c.color } : {}} />
+                            {c.name}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="import-date-field">
-                    <label>To</label>
-                    <input type="date" className="import-date-input" value={txnDateTo} onChange={e => setTxnDateTo(e.target.value)} />
+
+                  {/* Date range */}
+                  <div className="filter-section">
+                    <div className="filter-label">Date range</div>
+                    <div className="import-date-range" style={{ alignItems: "center" }}>
+                      <div className="import-date-field">
+                        <label>From</label>
+                        <input type="date" className="import-date-input" value={txnDateFrom} onChange={e => setTxnDateFrom(e.target.value)} />
+                      </div>
+                      <div className="import-date-field">
+                        <label>To</label>
+                        <input type="date" className="import-date-input" value={txnDateTo} onChange={e => setTxnDateTo(e.target.value)} />
+                      </div>
+                      {(txnDateFrom || txnDateTo) && (
+                        <button className="filter-clear-btn" style={{ alignSelf: "flex-end", marginBottom: 2 }} onClick={() => { setTxnDateFrom(""); setTxnDateTo(""); }}>
+                          Clear dates
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {(txnDateFrom || txnDateTo) && (
-                    <button className="filter-clear-btn" style={{ alignSelf: "flex-end", marginBottom: 2 }} onClick={() => { setTxnDateFrom(""); setTxnDateTo(""); }}>
-                      Clear dates
+
+                  {hasActiveTxnFilters && (
+                    <button className="filter-clear-btn" style={{ marginTop: 4 }} onClick={clearTxnFilters}>
+                      Clear all filters
                     </button>
                   )}
-                </div>
-              </div>
-
-              {hasActiveTxnFilters && (
-                <button className="filter-clear-btn" style={{ marginTop: 4 }} onClick={clearTxnFilters}>
-                  Clear all filters
-                </button>
+                </>
               )}
             </div>
 

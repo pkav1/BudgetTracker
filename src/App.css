@@ -193,6 +193,27 @@ input, select, textarea, button { font-family: inherit; }
   /* keep the toolbar from eating the screen on mobile — cap it and scroll inside */
   .txn-filters { max-height: 45vh; }
 }
+/* Condensed toolbar (once pinned): just the search bar + a Filters toggle */
+.txn-sentinel { height: 1px; }
+.txn-filters-bar { display: flex; align-items: center; gap: 8px; }
+.txn-filters:not(.collapsed) .txn-filters-bar { margin-bottom: 14px; }
+.txn-filters-bar .txn-search-input { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
+.txn-filters-toggle {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 13px;
+  border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); color: var(--text-2);
+  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.txn-filters-toggle:hover { background: var(--surface-2); color: var(--text-1); }
+.txn-filters-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 99px; background: var(--accent); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
 .txn-day-group:first-of-type .txn-day-header { padding-top: 2px; }
 .txn-day-header {
   font-size: 11px;
