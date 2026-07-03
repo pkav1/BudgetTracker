@@ -2208,7 +2208,8 @@ export default function App() {
                   <div className="budget-tile" key={b.name}>
                     <div className="budget-tile-head">
                       <span className="budget-tile-dot" style={{ background: b.color }} />
-                      <span className="budget-tile-name">{b.icon} {b.name}</span>
+                      <span className="budget-tile-icon">{b.icon}</span>
+                      <span className="budget-tile-name">{b.name}</span>
                     </div>
                     <div className="budget-tile-input-row">
                       <span className="budget-tile-currency">€</span>

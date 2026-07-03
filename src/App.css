@@ -166,8 +166,9 @@ input, select, textarea, button { font-family: inherit; }
   flex-direction: column;
   gap: 9px;
 }
-.budget-tile-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.budget-tile-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .budget-tile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.budget-tile-icon { font-size: 14px; line-height: 1; flex-shrink: 0; }
 .budget-tile-name {
   font-size: 13px; font-weight: 600; color: var(--text-1);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
