@@ -1226,16 +1226,23 @@ export default function App() {
     };
   }
 
-  // Fire every pending debounced write right now (cancels their timers).
+  // Fire every pending debounced write right now (cancels their timers) and return
+  // a promise that resolves once they've all completed — so sign-out can await
+  // confirmation, not just initiation. Each fn must return its Supabase promise.
   function flushSaves() {
     const timers = saveTimers.current;
+    const pending = [];
     for (const key of Object.keys(timers)) {
       const entry = timers[key];
       if (!entry) continue;
       clearTimeout(entry.timer);
       delete timers[key];
-      try { entry.fn(); } catch { /* best-effort */ }
+      try {
+        const result = entry.fn();
+        if (result && typeof result.then === "function") pending.push(result);
+      } catch { /* best-effort */ }
     }
+    return Promise.all(pending);
   }
 
   // Flush pending saves when leaving a tab, so an edit made just before
@@ -1937,6 +1944,9 @@ export default function App() {
     if (!session?.user?.id || loading || snapshotSavedRef.current) return;
     // Wait until the portfolio has actually resolved so investments aren't recorded as €0.
     if (portfolio === null && !portfolioError) return;
+    // Don't record a not-ready / all-zero net worth — wait until there's something real to save.
+    // (The effect re-runs when netWorthTotal changes, so it captures the value once it's positive.)
+    if (netWorthTotal <= 0) return;
     if (netWorthSnapshots.some(s => String(s.date).slice(0, 10) === todayStr)) {
       snapshotSavedRef.current = true;
       return;
@@ -2026,7 +2036,7 @@ export default function App() {
         onBypass={async (lockedOut) => {
           if (lockedOut) {
             // Too many wrong attempts — sign out so they must re-authenticate properly
-            flushSaves();
+            await flushSaves();
             await supabase.auth.signOut();
           } else {
             // Voluntary bypass (forgot PIN, wants to use email & password to get in and fix it)
@@ -2081,7 +2091,7 @@ export default function App() {
             <span className="sidebar-user-avatar">{session.user.email[0].toUpperCase()}</span>
             <span className="sidebar-user-email">{session.user.email}</span>
           </div>
-          <button className="sidebar-signout" onClick={() => { flushSaves(); supabase.auth.signOut(); }}>Sign out</button>
+          <button className="sidebar-signout" onClick={async () => { await flushSaves(); await supabase.auth.signOut(); }}>Sign out</button>
         </div>
       </aside>
       <nav className="bottom-nav">
@@ -2617,9 +2627,9 @@ export default function App() {
                 const saveBudget = (limit_amount, cadence) => {
                   const uid = session.user.id;
                   const { name, color } = b;
-                  debounceSave(`budget-${name}`, () => {
-                    supabase.from("budgets").upsert({ name, limit_amount, color, cadence, user_id: uid }, { onConflict: "name,user_id" });
-                  });
+                  debounceSave(`budget-${name}`, () =>
+                    supabase.from("budgets").upsert({ name, limit_amount, color, cadence, user_id: uid }, { onConflict: "name,user_id" })
+                  );
                 };
                 const setCadence = (cadence) => {
                   if (cadence === b.cadence) return;
@@ -2871,9 +2881,9 @@ export default function App() {
                               const uid = session.user.id;
                               const val = parseFloat(e.target.value) || 0;
                               setSavings(prev => prev.map(s => s.id === v.id ? { ...s, target: val } : s));
-                              debounceSave(`vault-target-${v.id}`, () => {
-                                supabase.from("savings").update({ target: val }).eq("id", v.id).eq("user_id", uid);
-                              });
+                              debounceSave(`vault-target-${v.id}`, () =>
+                                supabase.from("savings").update({ target: val }).eq("id", v.id).eq("user_id", uid)
+                              );
                             }}
                           />
                           {" target"}
