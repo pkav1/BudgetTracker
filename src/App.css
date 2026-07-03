@@ -18,6 +18,9 @@
   --amber-bg:     #fffbeb;
   --shadow:       0 1px 3px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
   --shadow-md:    0 4px 14px rgba(0,0,0,.09), 0 1px 3px rgba(0,0,0,.05);
+  /* Spacing & radius scale (adopted incrementally from Stage 1 onward) */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
 }
 
 .dark {
@@ -50,6 +53,73 @@ body {
   color: var(--text-1);
   min-height: 100vh;
 }
+
+/* ── Stage 0 foundation ──────────────────────────────────────────────────────── */
+
+/* Inter everywhere — form controls don't inherit font-family by default */
+input, select, textarea, button { font-family: inherit; }
+
+/* Unified focus ring for form controls (the auth screen keeps its own) */
+.app input:focus,
+.app select:focus,
+.app textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.dark .app input:focus,
+.dark .app select:focus,
+.dark .app textarea:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
+/* Interactive row hover states */
+.txn-row, .inv-row, .settings-row, .planner-savings-row {
+  transition: background 0.15s ease;
+}
+.txn-row:hover, .inv-row:hover, .settings-row:hover, .planner-savings-row:hover {
+  background: var(--surface-2);
+}
+
+/* Ambient entrance motion when a tab mounts */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.app .tab-header,
+.app .card,
+.app .networth-hero,
+.app .snap-tiles,
+.app .metric-row {
+  animation: riseIn 0.35s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app .tab-header,
+  .app .card,
+  .app .networth-hero,
+  .app .snap-tiles,
+  .app .metric-row { animation: none; }
+}
+
+/* ── Tab header (Stage 1) ────────────────────────────────────────────────────── */
+.tab-header { margin-bottom: 1.25rem; }
+.tab-header-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.tab-header-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--text-3);
+}
+.tab-header-headline {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px;
+  margin-top: 8px;
+  font-size: 30px; font-weight: 700; letter-spacing: -1px; line-height: 1.1;
+  color: var(--text-1); font-variant-numeric: tabular-nums;
+}
+.tab-header-unit { font-size: 15px; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
+.tab-header-text { font-size: 20px; letter-spacing: -0.4px; word-break: break-word; }
+.tab-header-sub { font-size: 13px; color: var(--text-2); margin-top: 6px; }
+.tab-header-action { flex-shrink: 0; }
 
 .app { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--text-1); padding-left: 220px; }
 

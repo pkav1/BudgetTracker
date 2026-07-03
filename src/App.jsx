@@ -514,6 +514,46 @@ function DoughnutChart({ labels, data, colors, textColor = "#52514e" }) {
   return <canvas ref={ref} />;
 }
 
+// Animated number that eases from its previous value to the new one on change.
+// Honours prefers-reduced-motion and formats with en-IE grouping.
+function CountUp({ value, prefix = "", suffix = "", decimals = 0, duration = 900 }) {
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
+  const rafRef = useRef(null);
+  useEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const from = fromRef.current;
+    const to = Number(value) || 0;
+    if (reduce || from === to) { setDisplay(to); fromRef.current = to; return; }
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(from + (to - from) * eased);
+      if (t < 1) rafRef.current = requestAnimationFrame(tick);
+      else fromRef.current = to;
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, duration]);
+  const formatted = display.toLocaleString("en-IE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return <>{prefix}{formatted}{suffix}</>;
+}
+
+// Consistent page header for every tab: eyebrow (tab name) + headline stat + context.
+function TabHeader({ eyebrow, children, sub, action }) {
+  return (
+    <div className="tab-header">
+      <div className="tab-header-top">
+        <span className="tab-header-eyebrow">{eyebrow}</span>
+        {action && <div className="tab-header-action">{action}</div>}
+      </div>
+      <div className="tab-header-headline">{children}</div>
+      {sub && <div className="tab-header-sub">{sub}</div>}
+    </div>
+  );
+}
+
 function VaultRing({ pct, size = 44 }) {
   const SIZE = size;
   const STROKE = size >= 72 ? 6 : 4.5;
@@ -1654,6 +1694,16 @@ export default function App() {
     .map((l, i) => ({ l, v: plannerChartData[i], c: plannerChartColors[i] }))
     .filter((x) => x.v > 0);
 
+  // ── Tab header stats ───────────────────────────────────────────────────────
+  const headerMonthStart = new Date();
+  headerMonthStart.setDate(1); headerMonthStart.setHours(0, 0, 0, 0);
+  const headerMonthTxns = transactions.filter((t) => t.date >= headerMonthStart);
+  const headerIn = headerMonthTxns.filter((t) => t.amount > 0 && t.category !== "Transfers").reduce((s, t) => s + t.amount, 0);
+  const headerOut = headerMonthTxns.filter((t) => t.amount < 0 && t.category !== "Transfers").reduce((s, t) => s + Math.abs(t.amount), 0);
+  const headerNet = headerIn - headerOut;
+  const latestTxnDate = transactions.reduce((m, t) => (!m || t.date > m ? t.date : m), null);
+  const fmt0 = (n) => n.toLocaleString("en-IE", { maximumFractionDigits: 0 });
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading && !session) {
@@ -1744,7 +1794,7 @@ export default function App() {
               <div className="networth-label">Net Worth</div>
               <div className="networth-headline">
                 <span className="networth-total">
-                  €{netWorthTotal.toLocaleString("en-IE", { maximumFractionDigits: 0 })}
+                  <CountUp value={netWorthTotal} prefix="€" />
                 </span>
                 {nwTrend !== null && (
                   <span className={`networth-trend ${nwTrend >= 0 ? "up" : "down"}`}>
@@ -2003,6 +2053,14 @@ export default function App() {
         {/* TRANSACTIONS */}
         {tab === "transactions" && (
           <>
+            <TabHeader
+              eyebrow="Transactions"
+              sub={`€${fmt0(headerIn)} in · €${fmt0(headerOut)} out · this month`}
+            >
+              <span style={{ color: headerNet >= 0 ? "var(--green)" : "var(--red)" }}>
+                {headerNet >= 0 ? "+" : "−"}<CountUp value={Math.abs(headerNet)} prefix="€" />
+              </span>
+            </TabHeader>
             {/* Filters card */}
             <div className="card">
               <input
@@ -2107,7 +2165,16 @@ export default function App() {
 
         {/* BUDGET */}
         {tab === "budget" && (
-          <div className="card">
+          <>
+            <TabHeader
+              eyebrow="Budget"
+              sub={planner.monthly_income > 0
+                ? `€${fmt0(weeklyBudgetMonthly)}/mo of €${fmt0(plannerAvailable)} available`
+                : "weekly limits across all categories"}
+            >
+              <CountUp value={totalBudget} prefix="€" /><span className="tab-header-unit">/wk</span>
+            </TabHeader>
+            <div className="card">
             <div className="card-title">Weekly budget limits</div>
             {planner.monthly_income > 0 && (
               <div style={{
@@ -2149,12 +2216,21 @@ export default function App() {
                 />
               </div>
             ))}
-          </div>
+            </div>
+          </>
         )}
 
         {/* STATEMENTS */}
         {tab === "statements" && (
           <>
+            <TabHeader
+              eyebrow="Statements"
+              sub={transactions.length ? `${fmt0(transactions.length)} transactions imported` : "upload a statement to begin"}
+            >
+              {latestTxnDate
+                ? <span className="tab-header-text">{latestTxnDate.toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}</span>
+                : <span className="tab-header-text" style={{ color: "var(--text-3)" }}>No imports yet</span>}
+            </TabHeader>
             <div className="card">
               <div className="card-title">Select account</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2239,6 +2315,14 @@ export default function App() {
         {/* SAVINGS */}
         {tab === "savings" && (
           <>
+            <TabHeader
+              eyebrow="Savings"
+              sub={totalSavingsTarget > 0
+                ? `${savingsPct?.toFixed(0)}% of €${fmt0(totalSavingsTarget)} target`
+                : "across all vaults"}
+            >
+              <CountUp value={totalSavings} prefix="€" />
+            </TabHeader>
             <div className="card">
               <div className="card-title">Vaults &amp; savings</div>
               {savings.length === 0 && (
@@ -2440,6 +2524,16 @@ export default function App() {
         {/* INVESTMENTS */}
         {tab === "investments" && (
           <>
+            <TabHeader
+              eyebrow="Investments"
+              sub={portfolio && portfolio.length
+                ? `${pfTotalPnL >= 0 ? "+" : "−"}€${fmt0(Math.abs(pfTotalPnL))} · ${pfPnLPct >= 0 ? "+" : ""}${pfPnLPct.toFixed(1)}% all time`
+                : (portfolioLoading ? "loading your portfolio…" : "your Trading 212 portfolio")}
+            >
+              {portfolio === null
+                ? <span style={{ color: "var(--text-3)" }}>{portfolioLoading ? "…" : "—"}</span>
+                : <CountUp value={pfTotalValue} prefix="€" />}
+            </TabHeader>
             {portfolioLoading && (
               <div className="card">
                 <div className="skel" style={{ height: 14, width: 160, marginBottom: 20 }} />
@@ -2542,6 +2636,14 @@ export default function App() {
         {/* PLANNER */}
         {tab === "planner" && (
           <>
+            <TabHeader
+              eyebrow="Planner"
+              sub={planner.monthly_income > 0 ? "available to spend each month" : "set your income below to begin"}
+            >
+              <span style={{ color: plannerAvailable < 0 ? "var(--red)" : undefined }}>
+                {plannerAvailable < 0 ? "−" : ""}<CountUp value={Math.abs(plannerAvailable)} prefix="€" />
+              </span>
+            </TabHeader>
             {/* Monthly income */}
             <div className="card">
               <div className="card-title">Monthly take-home pay</div>
@@ -2712,6 +2814,9 @@ export default function App() {
         {/* SETTINGS */}
         {tab === "settings" && (
           <>
+            <TabHeader eyebrow="Settings" sub="signed in">
+              <span className="tab-header-text">{session.user.email}</span>
+            </TabHeader>
             <div className="card">
               <div className="card-title">Account</div>
               <div className="settings-row">
