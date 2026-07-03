@@ -1945,14 +1945,14 @@ export default function App() {
     const uid = session.user.id;
     supabase
       .from("net_worth_snapshots")
-      .insert({
+      .upsert({
         date: todayStr,
         account_balance: latestBalance ?? 0,
         savings_total: totalSavings,
         investments_value: pfTotalValue,
         total: netWorthTotal,
         user_id: uid,
-      })
+      }, { onConflict: "user_id,date" })   // one row per user per day — can't duplicate
       .select()
       .then(({ data, error }) => {
         if (error) snapshotSavedRef.current = false;              // allow a retry next load
