@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { Chart } from "chart.js/auto";
 import "./App.css";
 import { supabase } from "./supabase";
@@ -379,6 +379,103 @@ function extractMerchant(description) {
     .join(" ");
 }
 
+// ── Recurring / subscription detection ──────────────────────────────────────
+const RECURRING_PERIODS = [
+  { label: "Weekly",      min: 6,   max: 8,   days: 7,   monthly: 52 / 12 },
+  { label: "Fortnightly", min: 12,  max: 16,  days: 14,  monthly: 26 / 12 },
+  { label: "Monthly",     min: 26,  max: 35,  days: 30,  monthly: 1 },
+  { label: "Quarterly",   min: 80,  max: 100, days: 91,  monthly: 1 / 3 },
+  { label: "Yearly",      min: 340, max: 400, days: 365, monthly: 1 / 12 },
+];
+const DAY_MS = 86400000;
+
+function median(nums) {
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function modeAmount(nums) {
+  const counts = {};
+  let best = null, bestN = 0;
+  for (const n of nums) {
+    const k = n.toFixed(2);
+    counts[k] = (counts[k] || 0) + 1;
+    if (counts[k] > bestN) { bestN = counts[k]; best = parseFloat(k); }
+  }
+  return best;
+}
+function titleCaseMerchant(s) {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Detect recurring spending from transaction history. Groups by merchant key,
+// then keeps groups with a regular cadence + stable-ish amount (one price step allowed).
+// Excludes income, Transfers and IOUs & Splits. Pure — no persistence.
+function detectRecurring(transactions) {
+  const spend = transactions.filter(
+    (t) => t.amount < 0 && t.category !== "Transfers" && t.category !== "IOUs & Splits"
+  );
+  const groups = {};
+  for (const t of spend) {
+    const key = extractMerchant(t.description);
+    if (!key) continue;
+    (groups[key] ||= []).push(t);
+  }
+
+  const now = new Date();
+  const results = [];
+  for (const key of Object.keys(groups)) {
+    const occ = groups[key].slice().sort((a, b) => a.date - b.date);
+    if (occ.length < 3) continue;
+
+    const gaps = [];
+    for (let i = 1; i < occ.length; i++) gaps.push((occ[i].date - occ[i - 1].date) / DAY_MS);
+    const med = median(gaps);
+    const period = RECURRING_PERIODS.find((p) => med >= p.min && med <= p.max);
+    if (!period) continue;
+
+    // Regularity: ≥70% of gaps close to the period length.
+    const tol = Math.max(period.days * 0.25, 4);
+    const within = gaps.filter((g) => Math.abs(g - period.days) <= tol).length;
+    if (within / gaps.length < 0.7) continue;
+
+    const amounts = occ.map((t) => Math.abs(t.amount));
+    const latest = amounts[amounts.length - 1];
+    const prior = amounts.slice(0, -1);
+    const baseline = modeAmount(prior.length ? prior : amounts);
+
+    // Price change: latest differs from the earlier baseline by >5% and >€0.50.
+    let priceChange = null;
+    if (baseline && Math.abs(latest - baseline) / baseline > 0.05 && Math.abs(latest - baseline) > 0.5) {
+      const idx = occ.findIndex((t) => Math.abs(Math.abs(t.amount) - latest) / latest <= 0.02);
+      priceChange = { old: baseline, new: latest, since: idx > 0 ? occ[idx].date : null };
+    }
+
+    // Amount stability: nearly all amounts near either the baseline or the latest (one step allowed).
+    const scattered = amounts.filter(
+      (a) => Math.abs(a - baseline) / baseline > 0.05 && Math.abs(a - latest) / latest > 0.05
+    ).length;
+    if (scattered > Math.max(1, amounts.length * 0.2)) continue;
+
+    const lastSeen = occ[occ.length - 1].date;
+    results.push({
+      key,
+      name: titleCaseMerchant(key),
+      amount: latest,
+      period: period.label,
+      monthly: latest * period.monthly,
+      count: occ.length,
+      lastSeen,
+      nextDue: new Date(lastSeen.getTime() + period.days * DAY_MS),
+      active: (now - lastSeen) / DAY_MS <= period.days * 1.5,
+      priceChange,
+      category: occ[occ.length - 1].category,
+    });
+  }
+  results.sort((a, b) => b.monthly - a.monthly);
+  return results;
+}
+
 function monthsUntil(yearMonth) {
   if (!yearMonth) return null;
   const [y, m] = yearMonth.split("-").map(Number);
@@ -476,6 +573,12 @@ const ICON_SHAPES = {
     <path d="M12 4L2.5 20h19L12 4z" />
     <path d="M12 10.5v4" />
     <circle cx="12" cy="17.3" r="0.6" fill="currentColor" stroke="none" />
+  </>),
+  recurring: (<>
+    <path d="M4.5 10a7.5 7.5 0 0 1 12.5-3l3 2.5" />
+    <path d="M20 4.5V9.5h-5" />
+    <path d="M19.5 14a7.5 7.5 0 0 1-12.5 3l-3-2.5" />
+    <path d="M4 19.5V14.5h5" />
   </>),
 };
 
@@ -985,6 +1088,7 @@ export default function App() {
   const [txnDateTo, setTxnDateTo] = useState("");
   const [filtersStuck, setFiltersStuck] = useState(false); // toolbar pinned to top after scroll
   const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
+  const [recurringOpen, setRecurringOpen] = useState(false); // collapsible recurring panel
   const saveTimers = useRef({});
   const [revVaultMeta, setRevVaultMeta] = useState(() => {
     try { return JSON.parse(localStorage.getItem("revolut_vaults") || "{}"); } catch { return {}; }
@@ -1267,6 +1371,13 @@ export default function App() {
   const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
   // Active filters excluding search (search stays visible in the condensed bar)
   const activeFilterCount = txnAccounts.length + txnCategories.length + (txnDateFrom ? 1 : 0) + (txnDateTo ? 1 : 0);
+
+  // Recurring / subscription detection (derived from history; recomputed only when txns change)
+  const recurring = useMemo(() => detectRecurring(transactions), [transactions]);
+  const recurringActive = recurring.filter((r) => r.active);
+  const recurringInactive = recurring.filter((r) => !r.active);
+  const recurringMonthly = recurringActive.reduce((s, r) => s + r.monthly, 0);
+  const recurringPriceChanges = recurring.filter((r) => r.priceChange).length;
   // Group filtered transactions by calendar day, preserving the newest-first order
   const txnGroups = [];
   filteredTxns.forEach((t) => {
@@ -2186,6 +2297,73 @@ export default function App() {
                 {headerNet >= 0 ? "+" : "−"}<CountUp value={Math.abs(headerNet)} prefix="€" />
               </span>
             </TabHeader>
+
+            {/* Recurring / subscriptions — collapsible, detected from history */}
+            {recurring.length > 0 && (
+              <div className="card recurring-card">
+                <button className="recurring-header" onClick={() => setRecurringOpen((o) => !o)} aria-expanded={recurringOpen}>
+                  <span className="recurring-header-icon"><Icon name="recurring" size={16} /></span>
+                  <span className="recurring-header-title">Recurring</span>
+                  <span className="recurring-header-summary">
+                    €{fmt0(recurringMonthly)}/mo · {recurringActive.length} payment{recurringActive.length !== 1 ? "s" : ""}
+                  </span>
+                  {recurringPriceChanges > 0 && (
+                    <span className="recurring-alert-badge">{recurringPriceChanges} price change{recurringPriceChanges !== 1 ? "s" : ""}</span>
+                  )}
+                  <span className={`recurring-chevron${recurringOpen ? " open" : ""}`}>⌄</span>
+                </button>
+                {recurringOpen && (
+                  <div className="recurring-list">
+                    {recurringActive.map((r) => {
+                      const cat = CATEGORIES.find((c) => c.name === r.category) || CATEGORIES[CATEGORIES.length - 1];
+                      return (
+                        <div className="recurring-row" key={r.key}>
+                          <span className="recurring-dot" style={{ background: cat.color }} />
+                          <div className="recurring-info">
+                            <div className="recurring-name-row">
+                              <span className="recurring-name">{r.name}</span>
+                              <span className="recurring-freq">{r.period}</span>
+                              {r.priceChange && (
+                                <span className={`recurring-price-flag ${r.priceChange.new > r.priceChange.old ? "up" : "down"}`}>
+                                  €{r.priceChange.old.toFixed(2)} → €{r.priceChange.new.toFixed(2)} {r.priceChange.new > r.priceChange.old ? "↑" : "↓"}
+                                </span>
+                              )}
+                            </div>
+                            <div className="recurring-meta">
+                              last {r.lastSeen.toLocaleDateString("en-IE", { day: "numeric", month: "short" })} · next ~{r.nextDue.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}
+                            </div>
+                          </div>
+                          <div className="recurring-amount">€{r.amount.toFixed(2)}</div>
+                        </div>
+                      );
+                    })}
+                    {recurringInactive.length > 0 && (
+                      <>
+                        <div className="recurring-subhead">Not seen recently</div>
+                        {recurringInactive.map((r) => {
+                          const cat = CATEGORIES.find((c) => c.name === r.category) || CATEGORIES[CATEGORIES.length - 1];
+                          return (
+                            <div className="recurring-row muted" key={r.key}>
+                              <span className="recurring-dot" style={{ background: cat.color }} />
+                              <div className="recurring-info">
+                                <div className="recurring-name-row">
+                                  <span className="recurring-name">{r.name}</span>
+                                  <span className="recurring-freq">{r.period}</span>
+                                </div>
+                                <div className="recurring-meta">
+                                  last seen {r.lastSeen.toLocaleDateString("en-IE", { day: "numeric", month: "short", year: "numeric" })}
+                                </div>
+                              </div>
+                              <div className="recurring-amount">€{r.amount.toFixed(2)}</div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Filters card — collapses to search + toggle once scrolled */}
             <div className={`card txn-filters${filtersStuck && !filtersOpen ? " collapsed" : ""}`}>
               <div className="txn-filters-bar">

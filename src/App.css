@@ -222,6 +222,54 @@ input, select, textarea, button { font-family: inherit; }
   border-bottom: 1px solid var(--border-light);
 }
 
+/* ── Recurring / subscriptions panel ────────────────────────────────────────── */
+.recurring-card { padding: 0; overflow: hidden; }
+.recurring-header {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 13px 1.3rem; background: none; border: none; cursor: pointer;
+  font-family: inherit; text-align: left; color: var(--text-1);
+  transition: background 0.15s;
+}
+.recurring-header:hover { background: var(--surface-2); }
+.recurring-header-icon { display: inline-flex; color: var(--accent); flex-shrink: 0; }
+.recurring-header-title { font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.recurring-header-summary { font-size: 13px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recurring-alert-badge {
+  flex-shrink: 0;
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+  background: var(--amber-bg); color: var(--amber);
+}
+.recurring-chevron { margin-left: auto; color: var(--text-3); font-size: 13px; transition: transform 0.2s; flex-shrink: 0; }
+.recurring-chevron.open { transform: rotate(180deg); }
+.recurring-list { padding: 0 1.3rem 10px; }
+.recurring-subhead {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;
+  color: var(--text-3); padding: 12px 0 6px; margin-top: 6px;
+  border-top: 1px solid var(--border-light);
+}
+.recurring-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 0; border-bottom: 1px solid var(--border-light);
+}
+.recurring-row:last-child { border-bottom: none; }
+.recurring-row.muted { opacity: 0.62; }
+.recurring-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.recurring-info { flex: 1; min-width: 0; }
+.recurring-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.recurring-name { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+.recurring-freq {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;
+  color: var(--text-3); background: var(--surface-2); padding: 1px 7px; border-radius: 99px;
+}
+.recurring-price-flag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; }
+.recurring-price-flag.up { background: var(--amber-bg); color: var(--amber); }
+.recurring-price-flag.down { background: var(--green-bg); color: var(--green); }
+.recurring-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.recurring-amount {
+  font-size: 14px; font-weight: 700; color: var(--text-1);
+  font-variant-numeric: tabular-nums; flex-shrink: 0;
+}
+
 /* ── Dashboard two-column (Stage 2) ─────────────────────────────────────────── */
 .dash-grid {
   display: grid;
