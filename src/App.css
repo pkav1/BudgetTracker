@@ -178,7 +178,18 @@ input, select, textarea, button { font-family: inherit; }
 }
 .budget-tile-input-row { display: flex; align-items: center; gap: 5px; }
 .budget-tile-currency { font-size: 13px; color: var(--text-3); }
-.budget-tile-input { width: 72px; text-align: left; background: var(--surface); }
+.budget-tile-input { width: 64px; text-align: left; background: var(--surface); }
+.budget-tile-cadence {
+  display: inline-flex; margin-left: auto; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
+}
+.budget-tile-cadence button {
+  border: none; background: var(--surface); color: var(--text-3);
+  font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 4px 8px; cursor: pointer; transition: background 0.12s, color 0.12s;
+}
+.budget-tile-cadence button + button { border-left: 1px solid var(--border); }
+.budget-tile-cadence button.active { background: var(--accent); color: #fff; }
 .budget-tile-unit { font-size: 12px; color: var(--text-3); }
 .budget-tile .progress-wrap { background: var(--border); }
 .budget-tile-usage { display: flex; align-items: baseline; gap: 5px; font-size: 12px; font-weight: 700; }

@@ -13,39 +13,39 @@ function I(d) {
 }
 
 const CATEGORIES = [
-  { name: "Groceries", color: "#2a78d6", weekly: 80, keywords: ["tesco","supervalu","lidl","aldi","dunnes","spar","centra","co-op"],
+  { name: "Groceries", color: "#2a78d6", limit_amount:80, keywords: ["tesco","supervalu","lidl","aldi","dunnes","spar","centra","co-op"],
     icon: I(<><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></>)},
-  { name: "Eating out", color: "#1baf7a", weekly: 40, keywords: ["restaurant","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"],
+  { name: "Eating out", color: "#1baf7a", limit_amount:40, keywords: ["restaurant","mcdonalds","kfc","pizza","nando","subway","five guys","supermac"],
     icon: I(<><path d="M3 2v7a3 3 0 006 0V2"/><line x1="6" y1="11" x2="6" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/></>)},
-  { name: "Coffee", color: "#854f0b", weekly: 20, keywords: ["blue bird","ucd nova","gather and gather","poolside cafe","starbucks","insomnia","butlers","paulig","coffeeangel"],
+  { name: "Coffee", color: "#854f0b", limit_amount:20, keywords: ["blue bird","ucd nova","gather and gather","poolside cafe","starbucks","insomnia","butlers","paulig","coffeeangel"],
     icon: I(<><path d="M17 8h1a4 4 0 010 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/></>)},
-  { name: "Takeaway", color: "#eda100", weekly: 30, keywords: ["deliveroo","just eat","uber eats","takeaway"],
+  { name: "Takeaway", color: "#eda100", limit_amount:30, keywords: ["deliveroo","just eat","uber eats","takeaway"],
     icon: I(<><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>)},
-  { name: "Drinks / nights out", color: "#4a3aa7", weekly: 40, keywords: ["pub","bar","nightclub","off licence","o'briens"],
+  { name: "Drinks / nights out", color: "#4a3aa7", limit_amount:40, keywords: ["pub","bar","nightclub","off licence","o'briens"],
     icon: I(<><path d="M8 22h8"/><line x1="12" y1="11" x2="12" y2="22"/><path d="M6 2h12l-2 7a4 4 0 01-8 0L6 2z"/></>)},
-  { name: "Transport", color: "#e34948", weekly: 25, keywords: ["leap","dublin bus","luas","dart","irish rail","taxi","uber","free now","bolt"],
+  { name: "Transport", color: "#e34948", limit_amount:25, keywords: ["leap","dublin bus","luas","dart","irish rail","taxi","uber","free now","bolt"],
     icon: I(<><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><path d="M7 5V2"/><path d="M17 5V2"/><circle cx="7" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="17" cy="16" r="1" fill="currentColor" stroke="none"/></>)},
-  { name: "Petrol", color: "#eb6834", weekly: 30, keywords: ["applegreen","circle k","maxol","topaz","texaco","esso","fuel","petrol"],
+  { name: "Petrol", color: "#eb6834", limit_amount:30, keywords: ["applegreen","circle k","maxol","topaz","texaco","esso","fuel","petrol"],
     icon: I(<><path d="M3 22V7a2 2 0 012-2h8a2 2 0 012 2v15"/><line x1="3" y1="22" x2="15" y2="22"/><rect x="5" y="9" width="6" height="4" rx="1"/><path d="M15 6h2a2 2 0 012 2v3a2 2 0 002 2"/></>)},
-  { name: "Travel", color: "#185fa5", weekly: 0, keywords: ["booking.com","hostelworld","airbnb","ryanair","aer lingus","skyscanner","hotels.com","expedia","bus eireann","wexford bus","eurolines"],
+  { name: "Travel", color: "#185fa5", limit_amount: 0, keywords: ["booking.com","hostelworld","airbnb","ryanair","aer lingus","skyscanner","hotels.com","expedia","bus eireann","wexford bus","eurolines"],
     icon: I(<><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0011.5 2h0A1.5 1.5 0 0010 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></>)},
-  { name: "Shopping", color: "#e87ba4", weekly: 50, keywords: ["amazon","penneys","primark","asos"],
+  { name: "Shopping", color: "#e87ba4", limit_amount: 50, keywords: ["amazon","penneys","primark","asos"],
     icon: I(<><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></>)},
-  { name: "Clothes", color: "#e87ba4", weekly: 30, keywords: ["penneys","primark","zara","h&m","asos","next","marks","tkmaxx","tk maxx","river island","pull&bear","stradivarius"],
+  { name: "Clothes", color: "#e87ba4", limit_amount: 30, keywords: ["penneys","primark","zara","h&m","asos","next","marks","tkmaxx","tk maxx","river island","pull&bear","stradivarius"],
     icon: I(<><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></>)},
-  { name: "Subscriptions", color: "#52514e", weekly: 15, keywords: ["netflix","spotify","disney","apple","google","microsoft","gym"],
+  { name: "Subscriptions", color: "#52514e", limit_amount: 15, keywords: ["netflix","spotify","disney","apple","google","microsoft","gym"],
     icon: I(<><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></>)},
-  { name: "Utilities", color: "#639922", weekly: 0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"],
+  { name: "Utilities", color: "#639922", limit_amount:0, keywords: ["eir","virgin media","three","vodafone","electric ireland","bord gais","gas networks","upc","sky","broadband"],
     icon: I(<><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>)},
-  { name: "Health / Personal Care", color: "#0ca30c", weekly: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist","haircut","barber","grooming","toiletries","salon","hairdresser","superdrug","beauty"],
+  { name: "Health / Personal Care", color: "#0ca30c", limit_amount: 20, keywords: ["pharmacy","boots","lloyds","gp","dentist","physio","chemist","haircut","barber","grooming","toiletries","salon","hairdresser","superdrug","beauty"],
     icon: I(<><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></>)},
-  { name: "Sport", color: "#0f6e56", weekly: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
+  { name: "Sport", color: "#0f6e56", limit_amount: 15, keywords: ["decathlon","life style sports","intersport","elverys","gaa","ticketmaster","underdogs"],
     icon: I(<><line x1="6" y1="8" x2="6" y2="10"/><line x1="18" y1="14" x2="18" y2="16"/><line x1="4" y1="9" x2="8" y2="9"/><line x1="16" y1="15" x2="20" y2="15"/><line x1="8" y1="9" x2="16" y2="15"/></>)},
-  { name: "IOUs & Splits", color: "#8b5cf6", weekly: 0, keywords: ["transfer to ", "transfer from "],
+  { name: "IOUs & Splits", color: "#8b5cf6", limit_amount:0, keywords: ["transfer to ", "transfer from "],
     icon: I(<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 1-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>)},
-  { name: "Transfers", color: "#52514e", weekly: 0, keywords: ["revolut**"],
+  { name: "Transfers", color: "#52514e", limit_amount:0, keywords: ["revolut**"],
     icon: I(<><path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/></>)},
-  { name: "Other", color: "#898781", weekly: 30, keywords: [],
+  { name: "Other", color: "#898781", limit_amount:30, keywords: [],
     icon: I(<><circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/></>)},
 ];
 
@@ -1068,7 +1068,7 @@ export default function App() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [viewMode, setViewMode] = useState("weekly");
   const [transactions, setTransactions] = useState([]);
-  const [budgets, setBudgets] = useState(CATEGORIES.map((c) => ({ ...c })));
+  const [budgets, setBudgets] = useState(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
   const [savings, setSavings] = useState([]);
   const [importMsg, setImportMsg] = useState(null);
   const [pwResetMsg, setPwResetMsg] = useState(null);
@@ -1227,7 +1227,7 @@ export default function App() {
       if (event === "SIGNED_OUT") {
         setPinLocked(false);
         setTransactions([]);
-        setBudgets(CATEGORIES.map((c) => ({ ...c })));
+        setBudgets(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
         setSavings([]);
         setMerchantRules([]);
         setPlanner(PLANNER_DEFAULT);
@@ -1258,7 +1258,9 @@ export default function App() {
         setBudgets(CATEGORIES.map((c) => {
           const db = dbBudgets.find((b) => b.name === c.name)
             || (c.name === "Health / Personal Care" ? dbBudgets.find((b) => b.name === "Health") : null);
-          return db ? { ...c, weekly: db.weekly } : c;
+          return db
+            ? { ...c, limit_amount: db.limit_amount ?? db.weekly ?? 0, cadence: db.cadence ?? c.cadence ?? "weekly" }
+            : { ...c, cadence: c.cadence ?? "weekly" };
         }));
       }
       if (dbTxns?.length) {
@@ -1408,7 +1410,8 @@ export default function App() {
   const weekSpendTxns = weekTxns.filter((t) => t.category !== "Transfers");
   const weekTransferTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.category === "Transfers");
   const totalSpent = weekSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
-  const totalBudget = budgets.filter((b) => b.name !== "Transfers").reduce((s, b) => s + b.weekly, 0);
+  // Weekly budget total (weekly-cadence limits only) — drives "remaining this week"
+  const totalBudget = budgets.filter((b) => b.name !== "Transfers" && b.cadence !== "monthly").reduce((s, b) => s + b.limit_amount, 0);
   const remaining = totalBudget - totalSpent;
   const totalSavings = savings.reduce((s, v) => s + v.balance, 0);
 
@@ -1477,10 +1480,12 @@ export default function App() {
     borderSkipped: false,
   }];
 
-  // Over budget categories (weekly view only)
-  const overBudgetCats = budgets.filter((b) =>
-    b.name !== "Transfers" && b.weekly > 0 && (bycat[b.name] || 0) > b.weekly
-  );
+  // Over budget categories — each compared against its own cadence's spend
+  const overBudgetCats = budgets.filter((b) => {
+    if (b.name === "Transfers" || b.limit_amount <= 0) return false;
+    const spent = (b.cadence === "monthly" ? monthBycat[b.name] : bycat[b.name]) || 0;
+    return spent > b.limit_amount;
+  });
 
   // ── Data functions ─────────────────────────────────────────────────────────
 
@@ -1785,7 +1790,7 @@ export default function App() {
     ]);
     setTransactions([]);
     setSavings([]);
-    setBudgets(CATEGORIES.map((c) => ({ ...c })));
+    setBudgets(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
     setMerchantRules([]);
   }
 
@@ -1838,10 +1843,11 @@ export default function App() {
 
   // ── Chart datasets ─────────────────────────────────────────────────────────
 
-  const activeCats = budgets.filter((b) => bycat[b.name] > 0 && b.name !== "Transfers");
+  const catSpend = (b) => (b.cadence === "monthly" ? monthBycat[b.name] : bycat[b.name]) || 0;
+  const activeCats = budgets.filter((b) => b.name !== "Transfers" && catSpend(b) > 0);
   const dashDatasets = activeCats.length ? [
-    { label: "Spent", data: activeCats.map((b) => parseFloat(Math.abs(bycat[b.name]).toFixed(2))), backgroundColor: activeCats.map((b) => b.color + "cc"), borderRadius: 4, borderSkipped: false },
-    { label: "Budget", data: activeCats.map((b) => b.weekly), backgroundColor: activeCats.map((b) => b.color + "33"), borderRadius: 4, borderSkipped: false },
+    { label: "Spent", data: activeCats.map((b) => parseFloat(Math.abs(catSpend(b)).toFixed(2))), backgroundColor: activeCats.map((b) => b.color + "cc"), borderRadius: 4, borderSkipped: false },
+    { label: "Budget", data: activeCats.map((b) => b.limit_amount), backgroundColor: activeCats.map((b) => b.color + "33"), borderRadius: 4, borderSkipped: false },
   ] : [];
 
 
@@ -1921,7 +1927,10 @@ export default function App() {
     return sum + (months && needed > 0 ? needed / months : 0);
   }, 0);
   const plannerAvailable = planner.monthly_income - fixedTotal - savingsContribTotal - investEur;
-  const weeklyBudgetMonthly = budgets.filter((b) => b.name !== "Transfers").reduce((s, b) => s + b.weekly, 0) * 4;
+  // Monthly-equivalent of all limits: weekly-cadence ×4, monthly-cadence added directly.
+  const budgetMonthlyTotal = budgets
+    .filter((b) => b.name !== "Transfers")
+    .reduce((s, b) => s + (b.cadence === "monthly" ? b.limit_amount : b.limit_amount * 4), 0);
   const plannerChartData = [fixedTotal, savingsContribTotal, investEur, Math.max(0, plannerAvailable)].map((v) => parseFloat(v.toFixed(2)));
   const plannerChartLabels = ["Fixed costs", "Savings", "Investments", "Spending"];
   const plannerChartColors = ["#e34948", "#2a78d6", "#0f6e56", "#1baf7a"];
@@ -1938,9 +1947,19 @@ export default function App() {
   const headerNet = headerIn - headerOut;
   const latestTxnDate = transactions.reduce((m, t) => (!m || t.date > m ? t.date : m), null);
   const fmt0 = (n) => n.toLocaleString("en-IE", { maximumFractionDigits: 0 });
-  // Current-week spend per category (always this week, independent of the Dashboard's week nav)
+  // Current-week and current-month spend per category (always this week/month, independent of
+  // the Dashboard's week nav) — used to compare each budget against its own cadence.
   const budgetWeekSpent = {};
   cwSpendTxns.forEach((t) => { budgetWeekSpent[t.category] = (budgetWeekSpent[t.category] || 0) + Math.abs(t.amount); });
+  const budgetMonthStart = new Date(); budgetMonthStart.setDate(1); budgetMonthStart.setHours(0, 0, 0, 0);
+  const budgetMonthSpent = {};
+  transactions
+    .filter((t) => t.amount < 0 && t.category !== "Transfers" && t.date >= budgetMonthStart)
+    .forEach((t) => { budgetMonthSpent[t.category] = (budgetMonthSpent[t.category] || 0) + Math.abs(t.amount); });
+  const budgetMonthTotalSpent = Object.values(budgetMonthSpent).reduce((s, v) => s + v, 0);
+  const budgetMonthPct = budgetMonthlyTotal > 0 ? (budgetMonthTotalSpent / budgetMonthlyTotal) * 100 : null;
+  // Per-category spend over the category's own cadence period (week vs month-to-date)
+  const budgetSpentFor = (b) => (b.cadence === "monthly" ? budgetMonthSpent[b.name] : budgetWeekSpent[b.name]) || 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -2123,16 +2142,17 @@ export default function App() {
                 <div className="card">
                   <div className="card-title">Spending by category</div>
                   {budgets.filter((b) => b.name !== "Transfers").map((b) => {
-                    const spent = bycat[b.name] || 0;
-                    if (!b.weekly && !spent) return null;
-                    const pct = b.weekly > 0 ? Math.min(100, (spent / b.weekly) * 100) : 0;
-                    const color = b.weekly > 0 ? (spent > b.weekly ? "#e24b4a" : spent > b.weekly * 0.8 ? "#ba7517" : b.color) : b.color;
+                    const isMonthly = b.cadence === "monthly";
+                    const spent = (isMonthly ? monthBycat[b.name] : bycat[b.name]) || 0;
+                    if (!b.limit_amount && !spent) return null;
+                    const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
+                    const color = b.limit_amount > 0 ? (spent > b.limit_amount ? "#e24b4a" : spent > b.limit_amount * 0.8 ? "#ba7517" : b.color) : b.color;
                     return (
                       <div className="budget-row" key={b.name}>
                         <div className="budget-label">{b.icon}<span>{b.name}</span></div>
-                        <div className="progress-wrap">{b.weekly > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
+                        <div className="progress-wrap">{b.limit_amount > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
                         <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
-                        <div className="budget-limit">{b.weekly > 0 ? `/ €${b.weekly}` : ""}</div>
+                        <div className="budget-limit">{b.limit_amount > 0 ? `/ €${b.limit_amount}${isMonthly ? "/mo" : ""}` : ""}</div>
                       </div>
                     );
                   })}
@@ -2208,12 +2228,12 @@ export default function App() {
 
               <button className="snap-tile" onClick={() => setTab("budget")}>
                 <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="budget" size={13} /></span>Budget</div>
-                {totalBudget > 0 ? (
+                {budgetMonthlyTotal > 0 ? (
                   <>
-                    <div className="snap-tile-primary" style={{ color: cwBudgetPct >= 100 ? "var(--red)" : cwBudgetPct >= 80 ? "var(--amber)" : "var(--green)" }}>
-                      €{cwTotalSpent.toFixed(0)}
+                    <div className="snap-tile-primary" style={{ color: budgetMonthPct >= 100 ? "var(--red)" : budgetMonthPct >= 80 ? "var(--amber)" : "var(--green)" }}>
+                      €{budgetMonthTotalSpent.toFixed(0)}
                     </div>
-                    <div className="snap-tile-sub">{cwBudgetPct.toFixed(0)}% · €{totalBudget}/wk budget</div>
+                    <div className="snap-tile-sub">{budgetMonthPct.toFixed(0)}% · €{fmt0(budgetMonthlyTotal)}/mo budget</div>
                   </>
                 ) : (
                   <>
@@ -2513,39 +2533,52 @@ export default function App() {
           <>
             <TabHeader
               eyebrow="Budget"
-              sub={budgets.filter((b) => b.weekly > 0).length > 0
-                ? `weekly limits across ${budgets.filter((b) => b.weekly > 0).length} categories`
-                : "set your weekly spending limits below"}
+              sub={budgets.filter((b) => b.limit_amount > 0).length > 0
+                ? `${budgets.filter((b) => b.limit_amount > 0 && b.cadence !== "monthly").length} weekly · ${budgets.filter((b) => b.limit_amount > 0 && b.cadence === "monthly").length} monthly limits`
+                : "set your spending limits below"}
             >
-              <CountUp value={totalBudget} prefix="€" /><span className="tab-header-unit">/wk</span>
+              <CountUp value={budgetMonthlyTotal} prefix="€" /><span className="tab-header-unit">/mo</span>
             </TabHeader>
             <div className="card">
-            <div className="card-title">Weekly budget limits</div>
+            <div className="card-title">Category budget limits</div>
             {planner.monthly_income > 0 && (
               <div style={{
-                background: weeklyBudgetMonthly > plannerAvailable ? "var(--red-bg)"
-                  : weeklyBudgetMonthly >= plannerAvailable * 0.9 ? "var(--amber-bg)"
+                background: budgetMonthlyTotal > plannerAvailable ? "var(--red-bg)"
+                  : budgetMonthlyTotal >= plannerAvailable * 0.9 ? "var(--amber-bg)"
                   : "var(--green-bg)",
-                color: weeklyBudgetMonthly > plannerAvailable ? "var(--red)"
-                  : weeklyBudgetMonthly >= plannerAvailable * 0.9 ? "var(--amber)"
+                color: budgetMonthlyTotal > plannerAvailable ? "var(--red)"
+                  : budgetMonthlyTotal >= plannerAvailable * 0.9 ? "var(--amber)"
                   : "var(--green)",
                 borderRadius: 8, padding: "8px 12px", fontSize: 13, fontWeight: 500, marginBottom: "1rem",
               }}>
-                <div>Planner: €{plannerAvailable.toFixed(0)}/mo available · Limits total: €{weeklyBudgetMonthly.toFixed(0)}/mo</div>
+                <div>Planner: €{plannerAvailable.toFixed(0)}/mo available · Limits total: €{budgetMonthlyTotal.toFixed(0)}/mo</div>
                 <div style={{ fontWeight: 400, fontSize: 12, marginTop: 3, opacity: 0.85 }}>
-                  {weeklyBudgetMonthly > plannerAvailable
-                    ? `€${(weeklyBudgetMonthly - plannerAvailable).toFixed(0)} over — reduce limits or update your Planner`
-                    : weeklyBudgetMonthly >= plannerAvailable * 0.9
-                    ? `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} to spare — limits are close to the maximum`
-                    : `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} buffer — limits fit comfortably`}
+                  {budgetMonthlyTotal > plannerAvailable
+                    ? `€${(budgetMonthlyTotal - plannerAvailable).toFixed(0)} over — reduce limits or update your Planner`
+                    : budgetMonthlyTotal >= plannerAvailable * 0.9
+                    ? `€${(plannerAvailable - budgetMonthlyTotal).toFixed(0)} to spare — limits are close to the maximum`
+                    : `€${(plannerAvailable - budgetMonthlyTotal).toFixed(0)} buffer — limits fit comfortably`}
                 </div>
               </div>
             )}
             <div className="budget-tiles">
               {budgets.filter((b) => b.name !== "IOUs & Splits").map((b, i) => {
-                const spent = budgetWeekSpent[b.name] || 0;
-                const pct = b.weekly > 0 ? Math.min(100, (spent / b.weekly) * 100) : 0;
-                const barColor = b.weekly > 0 ? (spent > b.weekly ? "#e24b4a" : spent > b.weekly * 0.8 ? "#ba7517" : b.color) : b.color;
+                const isMonthly = b.cadence === "monthly";
+                const spent = budgetSpentFor(b);
+                const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
+                const barColor = b.limit_amount > 0 ? (spent > b.limit_amount ? "#e24b4a" : spent > b.limit_amount * 0.8 ? "#ba7517" : b.color) : b.color;
+                const saveBudget = (limit_amount, cadence) => {
+                  const uid = session.user.id;
+                  const { name, color } = b;
+                  debounceSave(`budget-${name}`, () => {
+                    supabase.from("budgets").upsert({ name, limit_amount, color, cadence, user_id: uid }, { onConflict: "name,user_id" });
+                  });
+                };
+                const setCadence = (cadence) => {
+                  if (cadence === b.cadence) return;
+                  setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, cadence } : p));
+                  saveBudget(b.limit_amount, cadence);
+                };
                 return (
                   <div className="budget-tile" key={b.name}>
                     <div className="budget-tile-head">
@@ -2556,26 +2589,25 @@ export default function App() {
                     <div className="budget-tile-input-row">
                       <span className="budget-tile-currency">€</span>
                       <input
-                        type="number" min="0" step="5" value={b.weekly}
+                        type="number" min="0" step="5" value={b.limit_amount}
                         className="budget-input budget-tile-input"
                         onChange={(e) => {
-                          const uid = session.user.id;
                           const val = parseFloat(e.target.value) || 0;
-                          const { name, color } = b;
-                          setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, weekly: val } : p));
-                          debounceSave(`budget-${name}`, () => {
-                            supabase.from("budgets").upsert({ name, weekly: val, color, user_id: uid }, { onConflict: "name,user_id" });
-                          });
+                          setBudgets((prev) => prev.map((p, j) => j === i ? { ...p, limit_amount: val } : p));
+                          saveBudget(val, b.cadence);
                         }}
                       />
-                      <span className="budget-tile-unit">/wk</span>
+                      <div className="budget-tile-cadence" role="group" aria-label="Budget cadence">
+                        <button type="button" className={!isMonthly ? "active" : ""} onClick={() => setCadence("weekly")}>wk</button>
+                        <button type="button" className={isMonthly ? "active" : ""} onClick={() => setCadence("monthly")}>mo</button>
+                      </div>
                     </div>
                     <div className="progress-wrap">
-                      {b.weekly > 0 && <div className="progress-bar" style={{ width: pct + "%", background: barColor }} />}
+                      {b.limit_amount > 0 && <div className="progress-bar" style={{ width: pct + "%", background: barColor }} />}
                     </div>
                     <div className="budget-tile-usage">
                       <span style={{ color: barColor }}>€{spent.toFixed(0)}</span>
-                      <span className="budget-tile-usage-sub">{b.weekly > 0 ? `spent of €${b.weekly}` : "no limit set"}</span>
+                      <span className="budget-tile-usage-sub">{b.limit_amount > 0 ? `spent of €${b.limit_amount} · ${isMonthly ? "month" : "week"}` : "no limit set"}</span>
                     </div>
                   </div>
                 );
@@ -3136,14 +3168,14 @@ export default function App() {
                   </strong>
                 </div>
                 <div className="planner-summary-row planner-summary-compare">
-                  <span>Weekly budgets × 4</span>
-                  <span>€{weeklyBudgetMonthly.toFixed(0)}</span>
+                  <span>Budget limits (monthly)</span>
+                  <span>€{budgetMonthlyTotal.toFixed(0)}</span>
                 </div>
                 {planner.monthly_income > 0 && (
-                  <div className={`planner-compare-banner ${plannerAvailable >= weeklyBudgetMonthly ? "ok" : "warn"}`}>
-                    {plannerAvailable >= weeklyBudgetMonthly
-                      ? `€${(plannerAvailable - weeklyBudgetMonthly).toFixed(0)} buffer above your weekly budgets`
-                      : `€${(weeklyBudgetMonthly - plannerAvailable).toFixed(0)} short of your weekly budgets`}
+                  <div className={`planner-compare-banner ${plannerAvailable >= budgetMonthlyTotal ? "ok" : "warn"}`}>
+                    {plannerAvailable >= budgetMonthlyTotal
+                      ? `€${(plannerAvailable - budgetMonthlyTotal).toFixed(0)} buffer above your budget limits`
+                      : `€${(budgetMonthlyTotal - plannerAvailable).toFixed(0)} short of your budget limits`}
                   </div>
                 )}
               </div>
