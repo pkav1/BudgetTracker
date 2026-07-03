@@ -119,6 +119,19 @@ function hashStr(s) {
   return (h >>> 0).toString(16);
 }
 
+// Deterministic per-file transaction id factory. The 1st occurrence of an identical
+// date|desc|amount tuple keeps the original hash (so existing rows and re-import
+// idempotency are unaffected); 2nd+ same-tuple rows in the same file get a suffixed,
+// unique id so genuinely distinct same-day/same-amount transactions never collide.
+function makeTxnId(prefix) {
+  const seen = new Map();
+  return (keyStr) => {
+    const n = seen.get(keyStr) || 0;
+    seen.set(keyStr, n + 1);
+    return `${prefix}-${hashStr(n === 0 ? keyStr : `${keyStr}#${n}`)}`;
+  };
+}
+
 function parseRevolutCSV(text) {
   // Consolidated multi-section format (new export style)
   if (text.includes("Current Accounts Transaction Statements") ||
@@ -138,6 +151,7 @@ function parseRevolutCSV(text) {
   const balIdx     = cols.findIndex((c) => c === "balance");
   if (dateIdx < 0 || descIdx < 0 || amtIdx < 0) return null;
   const txns = [];
+  const nextId = makeTxnId("r");
   for (let i = 1; i < lines.length; i++) {
     const row = lines[i].split(",").map((c) => c.replace(/"/g, "").trim());
     if (row.length < 3) continue;
@@ -152,7 +166,7 @@ function parseRevolutCSV(text) {
     // Revolut-to-Revolut peer payments that Revolut labels as CARD_PAYMENT in the CSV.
     const isTransfer = (typeIdx >= 0 && row[typeIdx] === "Transfer") || /^revolut\*\*/i.test(desc);
     const category = isTransfer ? "Transfers" : catForDesc(desc);
-    const id = `r-${hashStr(`${row[dateIdx]}|${row[descIdx]}|${row[amtIdx]}`)}`;
+    const id = nextId(`${row[dateIdx]}|${row[descIdx]}|${row[amtIdx]}`);
     const balance = balIdx >= 0 ? (parseFloat(row[balIdx]) ?? null) : null;
     txns.push({ id, date, description: row[descIdx] || "Unknown", amount: amt, category, account: "Revolut", balance });
   }
@@ -161,6 +175,7 @@ function parseRevolutCSV(text) {
 
 function parseConsolidatedRevolutCSV(text) {
   const MONTH = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11 };
+  const nextId = makeTxnId("r");
 
   // Guard against encoding artifact: UTF-8 € bytes read as Latin-1 produce â¬
   const src = text.replace(/â¬/g, "€");
@@ -230,7 +245,7 @@ function parseConsolidatedRevolutCSV(text) {
       const isSavingsTransfer = /^to instant access savings$/i.test(desc);
       const pocketMatch = !isSavingsTransfer && desc.match(/^to pocket eur (.+?) from eur$/i);
       const category = (isSavingsTransfer || pocketMatch) ? "Transfers" : catForDesc(desc);
-      const id = `r-${hashStr(`${date.toISOString().slice(0,10)}|${desc}|${amt}`)}`;
+      const id = nextId(`${date.toISOString().slice(0,10)}|${desc}|${amt}`);
       txns.push({ id, date, description: desc, amount: amt, category, account: "Revolut", balance: null });
       if (isSavingsTransfer) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: "Emergency Fund" });
       else if (pocketMatch) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: pocketMatch[1].trim() });
@@ -256,7 +271,7 @@ function parseConsolidatedRevolutCSV(text) {
       const desc = cells[sdescI] ?? "";
       const amt  = parseAmt(cells[snetI]);
       if (!date || isNaN(amt) || amt === 0 || !desc) continue;
-      const id = `r-${hashStr(`${date.toISOString().slice(0,10)}|${desc}|${amt}`)}`;
+      const id = nextId(`${date.toISOString().slice(0,10)}|${desc}|${amt}`);
       txns.push({ id, date, description: desc, amount: amt, category: "Other", account: "Revolut", balance: null });
       vaultDeposits.push({ txnId: id, amount: amt, vaultName: "Emergency Fund" });
     }
@@ -289,6 +304,7 @@ async function parseBOIPDF(file) {
   const ab = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
   const txns = [];
+  const nextId = makeTxnId("b");
   let currentDate = null;
   let prevBalance = null;
 
@@ -350,7 +366,7 @@ async function parseBOIPDF(file) {
       const finalAmt = isIncome ? amount : -amount;
       const dateStr = currentDate.toISOString().slice(0, 10);
       txns.push({
-        id: `b-${hashStr(`${dateStr}|${desc}|${finalAmt}`)}`,
+        id: nextId(`${dateStr}|${desc}|${finalAmt}`),
         date: new Date(currentDate),
         description: desc,
         amount: finalAmt,
