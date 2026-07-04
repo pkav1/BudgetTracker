@@ -289,8 +289,6 @@ input, select, textarea, button { font-family: inherit; }
   align-items: start;
 }
 .dash-main, .dash-side { min-width: 0; }
-/* 4 summary tiles become a 2×2 inside the narrower right column */
-.dash-side .snap-tiles { grid-template-columns: repeat(2, 1fr); }
 @media (max-width: 960px) {
   .dash-grid { grid-template-columns: 1fr; }
 }
@@ -440,11 +438,16 @@ input, select, textarea, button { font-family: inherit; }
 }
 
 /* ── Snap tiles (dashboard overview strip) ───────────────────────────────────── */
+/* Section labels above the command tiles and the period-metric row */
+.dash-section-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+  color: var(--text-3); margin: 6px 0 10px 2px;
+}
 .snap-tiles {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 .snap-tile {
   background: var(--surface);
@@ -674,6 +677,11 @@ input, select, textarea, button { font-family: inherit; }
   margin-bottom: 1.25rem;
 }
 .metric-row-2 { grid-template-columns: repeat(2, 1fr); }
+/* Two-class selector so it stays 3-up even under the .metric-row mobile overrides */
+.metric-row.metric-row-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 480px) {
+  .metric-row.metric-row-3 { grid-template-columns: 1fr; }
+}
 .metric {
   background: var(--surface);
   border-radius: 12px;

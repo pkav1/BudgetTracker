@@ -1541,6 +1541,8 @@ export default function App() {
     .filter((t) => weeklyCadenceNames.has(t.category))
     .reduce((s, t) => s + Math.abs(t.amount), 0);
   const remaining = totalBudget - weeklyCadenceSpent;
+  // All non-transfer spend in the viewed week — drives the "Spent this week" metric.
+  const weekSpentAll = weekSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
   const totalSavings = savings.reduce((s, v) => s + v.balance, 0);
 
   // Tile-specific derived values — current week always (not affected by weekOffset nav)
@@ -2354,109 +2356,9 @@ export default function App() {
               </div>
             )}
 
-            <div className="dash-grid">
-              <div className="dash-main">
-            {viewMode === "weekly" ? (
-              <>
-                <div className="metric-row metric-row-2">
-                  {[
-                    { label: "Remaining this week", value: `${remaining < 0 ? "-" : ""}€${Math.abs(remaining).toFixed(0)}`, sub: remaining < 0 ? "over budget" : "left in budget", warn: remaining < 0 },
-                    { label: "Transactions this week", value: weekTxns.length, sub: `${weekSpendTxns.length} spending · ${weekTransferTxns.length} transfers` },
-                  ].map((m) => (
-                    <div className="metric" key={m.label}>
-                      <div className="metric-label">{m.label}</div>
-                      <div className={`metric-value${m.warn ? " over" : ""}`}>{m.value}</div>
-                      <div className="metric-sub">{m.sub}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="card">
-                  <div className="card-title">Spending by category</div>
-                  {budgets.filter((b) => b.name !== "Transfers").map((b) => {
-                    const isMonthly = b.cadence === "monthly";
-                    const spent = (isMonthly ? monthBycat[b.name] : bycat[b.name]) || 0;
-                    if (!b.limit_amount && !spent) return null;
-                    const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
-                    const color = b.limit_amount > 0 ? (spent > b.limit_amount ? "#e24b4a" : spent > b.limit_amount * 0.8 ? "#ba7517" : b.color) : b.color;
-                    return (
-                      <div className="budget-row" key={b.name}>
-                        <div className="budget-label">{b.icon}<span>{b.name}</span></div>
-                        <div className="progress-wrap">{b.limit_amount > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
-                        <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
-                        <div className="budget-limit">{b.limit_amount > 0 ? `/ €${b.limit_amount}${isMonthly ? "/mo" : "/wk"}` : ""}</div>
-                      </div>
-                    );
-                  })}
-                  {activeCats.length > 0 && (
-                    <div className="chart-wrap">
-                      <BarChart labels={activeCats.map((b) => b.name)} datasets={dashDatasets} darkMode={darkMode} />
-                    </div>
-                  )}
-                </div>
-                <div className="card">
-                  <div className="card-title">Recent transactions</div>
-                  {weekTxns.length === 0 ? (
-                    <EmptyState icon="transactions" headline="Nothing here yet" sub="Import a Revolut CSV to see your spending" />
-                  ) : (
-                    <>
-                      {weekSpendTxns.map((t) => (
-                        <TxnRow key={t.id} t={t} {...txnRowProps} />
-                      ))}
-                      {weekTransferTxns.length > 0 && (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 4px" }}>
-                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
-                            <span style={{ fontSize: 11, color: "#b4b2a9", whiteSpace: "nowrap" }}>Transfers & settlements</span>
-                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
-                          </div>
-                          {weekTransferTxns.map((t) => (
-                            <TxnRow key={t.id} t={t} muted {...txnRowProps} />
-                          ))}
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="metric-row">
-                  {[
-                    { label: "Spent", value: `€${totalMonthSpent.toFixed(0)}`, sub: monthLabel },
-                    { label: "Income", value: `€${totalMonthIncome.toFixed(0)}`, sub: "received this month" },
-                    { label: "Net saved", value: `${netSaved < 0 ? "-" : ""}€${Math.abs(netSaved).toFixed(0)}`, sub: netSaved < 0 ? "deficit" : "surplus", warn: netSaved < 0 },
-                  ].map((m) => (
-                    <div className="metric" key={m.label}>
-                      <div className="metric-label">{m.label}</div>
-                      <div className={`metric-value${m.warn ? " over" : ""}`}>{m.value}</div>
-                      <div className="metric-sub">{m.sub}</div>
-                    </div>
-                  ))}
-                </div>
-                <div className="card">
-                  <div className="card-title">Spending breakdown — {monthLabel}</div>
-                  {monthCatsSorted.length === 0 ? (
-                    <EmptyState icon="transactions" headline="Nothing here yet" sub={`No spending recorded for ${monthLabel}`} />
-                  ) : monthCatsSorted.map((c) => {
-                    const pct = totalMonthSpent > 0 ? (c.spent / totalMonthSpent) * 100 : 0;
-                    return (
-                      <div className="budget-row" key={c.name}>
-                        <div className="budget-label">{c.icon}<span>{c.name}</span></div>
-                        <div className="progress-wrap"><div className="progress-bar" style={{ width: pct + "%", background: c.color }} /></div>
-                        <div className="budget-spent" style={{ color: c.color }}>{`€${c.spent.toFixed(0)}`}</div>
-                        <div className="budget-limit">{pct.toFixed(0)}%</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-              </div>
-
-              <div className="dash-side">
-              {/* ── Overview tiles ── */}
-              <div className="snap-tiles">
-
+            {/* ── Command center: 4 status tiles (full width, both views) ── */}
+            <div className="dash-section-label">Overview</div>
+            <div className="snap-tiles">
               <button className="snap-tile" onClick={() => setTab("budget")}>
                 <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="budget" size={13} /></span>Budget</div>
                 {budgetMonthlyTotal <= 0 ? (
@@ -2466,15 +2368,15 @@ export default function App() {
                   </>
                 ) : budgetMonthTotalSpent <= 0 ? (
                   <>
-                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.35 }}>New month, nothing spent yet</div>
-                    <div className="snap-tile-sub">€{fmt0(budgetMonthlyTotal)}/mo budget</div>
+                    <div className="snap-tile-primary" style={{ fontSize: 20, color: "var(--text-2)" }}>New month</div>
+                    <div className="snap-tile-sub">nothing spent yet</div>
                   </>
                 ) : (
                   <>
                     <div className="snap-tile-primary" style={{ color: budgetMonthPct >= 100 ? "var(--red)" : budgetMonthPct >= 80 ? "var(--amber)" : "var(--green)" }}>
-                      €{budgetMonthTotalSpent.toFixed(0)}
+                      {budgetMonthPct.toFixed(0)}%
                     </div>
-                    <div className="snap-tile-sub">{budgetMonthPct.toFixed(0)}% · €{fmt0(budgetMonthlyTotal)}/mo budget</div>
+                    <div className="snap-tile-sub">of €{fmt0(budgetMonthlyTotal)}/mo budget</div>
                   </>
                 )}
               </button>
@@ -2528,8 +2430,106 @@ export default function App() {
                   </>
                 )}
               </button>
+            </div>
 
+            {/* ── This period's numbers: 3-up in both views (no reflow on toggle) ── */}
+            <div className="dash-section-label">{viewMode === "weekly" ? "This week" : "This month"}</div>
+            <div className="metric-row metric-row-3">
+              {(viewMode === "weekly"
+                ? [
+                    { label: "Remaining this week", value: `${remaining < 0 ? "-" : ""}€${Math.abs(remaining).toFixed(0)}`, sub: remaining < 0 ? "over budget" : "left in budget", warn: remaining < 0 },
+                    { label: "Spent this week", value: `€${weekSpentAll.toFixed(0)}`, sub: "this week" },
+                    { label: "Transactions this week", value: weekTxns.length, sub: `${weekSpendTxns.length} spending · ${weekTransferTxns.length} transfers` },
+                  ]
+                : [
+                    { label: "Spent", value: `€${totalMonthSpent.toFixed(0)}`, sub: monthLabel },
+                    { label: "Income", value: `€${totalMonthIncome.toFixed(0)}`, sub: "received this month" },
+                    { label: "Net saved", value: `${netSaved < 0 ? "-" : ""}€${Math.abs(netSaved).toFixed(0)}`, sub: netSaved < 0 ? "deficit" : "surplus", warn: netSaved < 0 },
+                  ]
+              ).map((m) => (
+                <div className="metric" key={m.label}>
+                  <div className="metric-label">{m.label}</div>
+                  <div className={`metric-value${m.warn ? " over" : ""}`}>{m.value}</div>
+                  <div className="metric-sub">{m.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="dash-grid">
+              <div className="dash-main">
+            {viewMode === "weekly" ? (
+              <>
+                <div className="card">
+                  <div className="card-title">Spending by category</div>
+                  {budgets.filter((b) => b.name !== "Transfers").map((b) => {
+                    const isMonthly = b.cadence === "monthly";
+                    const spent = (isMonthly ? monthBycat[b.name] : bycat[b.name]) || 0;
+                    if (!b.limit_amount && !spent) return null;
+                    const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
+                    const color = b.limit_amount > 0 ? (spent > b.limit_amount ? "#e24b4a" : spent > b.limit_amount * 0.8 ? "#ba7517" : b.color) : b.color;
+                    return (
+                      <div className="budget-row" key={b.name}>
+                        <div className="budget-label">{b.icon}<span>{b.name}</span></div>
+                        <div className="progress-wrap">{b.limit_amount > 0 && <div className="progress-bar" style={{ width: pct + "%", background: color }} />}</div>
+                        <div className="budget-spent" style={{ color }}>{`€${spent.toFixed(0)}`}</div>
+                        <div className="budget-limit">{b.limit_amount > 0 ? `/ €${b.limit_amount}${isMonthly ? "/mo" : "/wk"}` : ""}</div>
+                      </div>
+                    );
+                  })}
+                  {activeCats.length > 0 && (
+                    <div className="chart-wrap">
+                      <BarChart labels={activeCats.map((b) => b.name)} datasets={dashDatasets} darkMode={darkMode} />
+                    </div>
+                  )}
+                </div>
+                <div className="card">
+                  <div className="card-title">Recent transactions</div>
+                  {weekTxns.length === 0 ? (
+                    <EmptyState icon="transactions" headline="Nothing here yet" sub="Import a Revolut CSV to see your spending" />
+                  ) : (
+                    <>
+                      {weekSpendTxns.map((t) => (
+                        <TxnRow key={t.id} t={t} {...txnRowProps} />
+                      ))}
+                      {weekTransferTxns.length > 0 && (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 4px" }}>
+                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
+                            <span style={{ fontSize: 11, color: "#b4b2a9", whiteSpace: "nowrap" }}>Transfers & settlements</span>
+                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
+                          </div>
+                          {weekTransferTxns.map((t) => (
+                            <TxnRow key={t.id} t={t} muted {...txnRowProps} />
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="card">
+                  <div className="card-title">Spending breakdown — {monthLabel}</div>
+                  {monthCatsSorted.length === 0 ? (
+                    <EmptyState icon="transactions" headline="Nothing here yet" sub={`No spending recorded for ${monthLabel}`} />
+                  ) : monthCatsSorted.map((c) => {
+                    const pct = totalMonthSpent > 0 ? (c.spent / totalMonthSpent) * 100 : 0;
+                    return (
+                      <div className="budget-row" key={c.name}>
+                        <div className="budget-label">{c.icon}<span>{c.name}</span></div>
+                        <div className="progress-wrap"><div className="progress-bar" style={{ width: pct + "%", background: c.color }} /></div>
+                        <div className="budget-spent" style={{ color: c.color }}>{`€${c.spent.toFixed(0)}`}</div>
+                        <div className="budget-limit">{pct.toFixed(0)}%</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
               </div>
+
+              <div className="dash-side">
 
             {balanceDays.length > 0 && (
               <div className="card">
