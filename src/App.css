@@ -567,7 +567,8 @@ input, select, textarea, button { font-family: inherit; }
   box-shadow: var(--shadow);
   transition: background 0.15s, color 0.15s;
 }
-.nav-btn:hover { background: var(--surface-2); color: var(--text-1); }
+.nav-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text-1); }
+.nav-btn:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
 
 /* ── Metrics ────────────────────────────────────────────────────────────────── */
 .metric-row {
@@ -1622,4 +1623,10 @@ input, select, textarea, button { font-family: inherit; }
   /* Investments: tighter columns so ticker doesn't clip on mobile */
   .inv-header,
   .inv-row { grid-template-columns: 1fr 52px 72px 72px; }
+}
+
+@media (max-width: 480px) {
+  /* Net Worth hero: the four components wrap to a 2×2 grid so they don't
+     cramp on narrow phones (4-across stays for wider screens). */
+  .networth-components { grid-template-columns: repeat(2, 1fr); row-gap: 16px; }
 }

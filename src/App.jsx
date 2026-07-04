@@ -85,6 +85,16 @@ function getMonthRange(weekOffset) {
   return { from: new Date(y, m, 1, 0, 0, 0, 0), to: new Date(y, m + 1, 0, 23, 59, 59, 999) };
 }
 
+// Calendar-month range anchored directly to the current month (offset 0 = this
+// month, -1 = last month, …). Unlike getMonthRange, this does NOT go via a week's
+// Monday, so offset 0 always resolves to the in-progress current month even when
+// today falls in a week whose Monday is still in the previous month.
+function getMonthRangeByOffset(monthOffset = 0) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + monthOffset;
+  return { from: new Date(y, m, 1, 0, 0, 0, 0), to: new Date(y, m + 1, 0, 23, 59, 59, 999) };
+}
+
 function catForDesc(desc) {
   const d = desc.toLowerCase();
   for (const c of CATEGORIES.slice(0, -1)) {
@@ -1077,6 +1087,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
   const [weekOffset, setWeekOffset] = useState(0);
+  const [monthOffset, setMonthOffset] = useState(0);   // Monthly-view cursor, decoupled from weekOffset
   const [viewMode, setViewMode] = useState("weekly");
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
@@ -1501,8 +1512,21 @@ export default function App() {
   budgets.filter((b) => b.name !== "Transfers").forEach((b) => (bycat[b.name] = 0));
   weekSpendTxns.forEach((t) => { bycat[t.category] = (bycat[t.category] || 0) + Math.abs(t.amount); });
 
-  const { from: monthFrom, to: monthTo } = getMonthRange(weekOffset);
+  // Monthly view uses its own calendar-month cursor (monthOffset) so the current
+  // in-progress month is reachable; Weekly view keeps deriving the focused month
+  // from the week being viewed, exactly as before.
+  const { from: monthFrom, to: monthTo } = viewMode === "monthly"
+    ? getMonthRangeByOffset(monthOffset)
+    : getMonthRange(weekOffset);
   const monthLabel = monthFrom.toLocaleString("en-IE", { month: "long", year: "numeric" });
+  // How far back Monthly nav may go: the month of the earliest transaction (0 if none).
+  const minMonthOffset = (() => {
+    if (!transactions.length) return 0;
+    let earliest = transactions[0].date;
+    for (const t of transactions) if (t.date < earliest) earliest = t.date;
+    const now = new Date();
+    return Math.min(0, (earliest.getFullYear() - now.getFullYear()) * 12 + (earliest.getMonth() - now.getMonth()));
+  })();
   const balanceDayMap = {};
   transactions
     .filter((t) => t.date >= monthFrom && t.date <= monthTo && t.balance != null)
@@ -2202,9 +2226,21 @@ export default function App() {
             </div>
 
             <div className="week-nav">
-              <button className="nav-btn" onClick={() => setWeekOffset((w) => viewMode === "monthly" ? w - 4 : w - 1)}>‹</button>
+              <button
+                className="nav-btn"
+                disabled={viewMode === "monthly" && monthOffset <= minMonthOffset}
+                onClick={() => viewMode === "monthly"
+                  ? setMonthOffset((o) => Math.max(minMonthOffset, o - 1))
+                  : setWeekOffset((w) => w - 1)}
+              >‹</button>
               <span className="week-label">{viewMode === "monthly" ? monthLabel : fmtWeekLabel(weekOffset)}</span>
-              <button className="nav-btn" onClick={() => setWeekOffset((w) => Math.min(0, viewMode === "monthly" ? w + 4 : w + 1))}>›</button>
+              <button
+                className="nav-btn"
+                disabled={viewMode === "monthly" ? monthOffset >= 0 : weekOffset >= 0}
+                onClick={() => viewMode === "monthly"
+                  ? setMonthOffset((o) => Math.min(0, o + 1))
+                  : setWeekOffset((w) => Math.min(0, w + 1))}
+              >›</button>
             </div>
 
             <div className="view-toggle">
