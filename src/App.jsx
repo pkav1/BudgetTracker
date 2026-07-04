@@ -516,6 +516,7 @@ const PLANNER_DEFAULT = {
   investment_mode: "amount",
   fixed_costs: [],
   savings_dates: {},
+  cash_balance: 0,
 };
 
 const NAV_ITEMS = [
@@ -1430,6 +1431,7 @@ export default function App() {
           investment_mode: p.investment_mode ?? "amount",
           fixed_costs: p.fixed_costs ?? [],
           savings_dates: p.savings_dates ?? {},
+          cash_balance: p.cash_balance ?? 0,
         });
       }
       setNetWorthSnapshots(dbSnapshots ?? []);
@@ -1869,6 +1871,7 @@ export default function App() {
       investment_mode: p.investment_mode,
       fixed_costs: p.fixed_costs,
       savings_dates: p.savings_dates,
+      cash_balance: p.cash_balance,
     };
     let error;
     if (p.id) {
@@ -1949,7 +1952,7 @@ export default function App() {
     }
     return bal;
   })();
-  const netWorthTotal = (latestBalance ?? 0) + totalSavings + pfTotalValue;
+  const netWorthTotal = (latestBalance ?? 0) + totalSavings + pfTotalValue + (Number(planner.cash_balance) || 0);
 
   const nwSorted = [...netWorthSnapshots].sort((a, b) =>
     String(a.date) < String(b.date) ? -1 : String(a.date) > String(b.date) ? 1 : 0
@@ -2160,6 +2163,20 @@ export default function App() {
                   <div className="networth-comp-label">Investments</div>
                   <div className="networth-comp-val">
                     {portfolio === null && portfolioLoading ? "…" : `€${pfTotalValue.toLocaleString("en-IE", { maximumFractionDigits: 0 })}`}
+                  </div>
+                </div>
+                <div className="networth-comp">
+                  <div className="networth-comp-label">Cash</div>
+                  <div className="networth-comp-val networth-comp-editable">
+                    €<input
+                      type="number" min="0" step="10"
+                      value={planner.cash_balance || ""}
+                      placeholder="0"
+                      aria-label="Cash on hand"
+                      className="networth-comp-input"
+                      style={{ width: `${Math.max(String(planner.cash_balance || "").length, 1) + 1}ch` }}
+                      onChange={(e) => updatePlanner({ cash_balance: parseFloat(e.target.value) || 0 })}
+                    />
                   </div>
                 </div>
               </div>

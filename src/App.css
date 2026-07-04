@@ -514,7 +514,7 @@ input, select, textarea, button { font-family: inherit; }
 .networth-trend.up { color: var(--green); }
 .networth-trend.down { color: var(--red); }
 .networth-components {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
   margin-top: 18px;
 }
 .networth-comp-label {
@@ -524,6 +524,25 @@ input, select, textarea, button { font-family: inherit; }
 .networth-comp-val {
   font-size: 17px; font-weight: 700; color: var(--text-1);
   font-variant-numeric: tabular-nums;
+}
+/* Cash: editable value — same size/weight as the other three, borderless inline
+   treatment (dashed underline → accent on focus) like the savings target field. */
+.networth-comp-editable { display: flex; align-items: baseline; }
+.networth-comp-input {
+  font-family: inherit; font-size: 17px; font-weight: 700; color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  border: none; border-bottom: 1px dashed var(--border);
+  background: none; padding: 0 1px; outline: none; text-align: left;
+  -moz-appearance: textfield; appearance: textfield;
+  transition: border-color 0.15s, background 0.15s; min-width: 1ch;
+}
+.networth-comp-input::-webkit-outer-spin-button,
+.networth-comp-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.networth-comp-input::placeholder { color: var(--text-3); font-weight: 700; }
+.networth-comp-input:hover { border-bottom-color: var(--text-3); }
+.app .networth-comp-input:focus {
+  border-bottom-color: var(--accent); background: var(--accent-bg);
+  box-shadow: none; border-radius: 3px 3px 0 0;
 }
 .networth-divider { height: 1px; background: var(--border-light); margin: 18px 0; }
 .networth-chart-slot { position: relative; height: 150px; }
