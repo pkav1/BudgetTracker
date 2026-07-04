@@ -247,7 +247,7 @@ function parseConsolidatedRevolutCSV(text) {
   const txns = [];
   const vaultDeposits = [];  // { txnId, amount } — only for new-to-DB rows, checked in importTransactions
   let state = "seek_current";
-  let dI = -1, descI = -1, amtI = -1, revCatI = -1;
+  let dI = -1, descI = -1, amtI = -1, revCatI = -1, balI = -1;
   let sdI = -1, sdescI = -1, snetI = -1;
 
   for (const raw of src.split("\n")) {
@@ -270,6 +270,7 @@ function parseConsolidatedRevolutCSV(text) {
         descI   = low.indexOf("description");
         revCatI = low.indexOf("category");
         amtI    = low.findIndex(c => c.includes("money"));
+        balI    = low.indexOf("balance");   // real running balance, same as BOI
         state = "parse_eur";
       }
 
@@ -286,7 +287,9 @@ function parseConsolidatedRevolutCSV(text) {
       const pocketMatch = !isSavingsTransfer && desc.match(/^to pocket eur (.+?) from eur$/i);
       const category = (isSavingsTransfer || pocketMatch) ? "Transfers" : catForDesc(desc);
       const id = nextId(`${date.toISOString().slice(0,10)}|${desc}|${amt}`);
-      txns.push({ id, date, description: desc, amount: amt, category, account: "Revolut", balance: null });
+      const balRaw = balI >= 0 ? parseAmt(cells[balI]) : NaN;
+      const balance = isNaN(balRaw) ? null : balRaw;
+      txns.push({ id, date, description: desc, amount: amt, category, account: "Revolut", balance });
       if (isSavingsTransfer) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: "Emergency Fund" });
       else if (pocketMatch) vaultDeposits.push({ txnId: id, amount: Math.abs(amt), vaultName: pocketMatch[1].trim() });
 
@@ -312,7 +315,9 @@ function parseConsolidatedRevolutCSV(text) {
       const amt  = parseAmt(cells[snetI]);
       if (!date || isNaN(amt) || amt === 0 || !desc) continue;
       const id = nextId(`${date.toISOString().slice(0,10)}|${desc}|${amt}`);
-      txns.push({ id, date, description: desc, amount: amt, category: "Other", account: "Revolut", balance: null });
+      // subaccount:"savings" — a Revolut savings-pot row, NOT the current account.
+      // Excluded from current-account balance reconstruction on the Dashboard.
+      txns.push({ id, date, description: desc, amount: amt, category: "Other", account: "Revolut", balance: null, subaccount: "savings" });
       vaultDeposits.push({ txnId: id, amount: amt, vaultName: "Emergency Fund" });
     }
   }
@@ -690,29 +695,32 @@ function BarChart({ labels, datasets, yPrefix = "€", darkMode }) {
   return <canvas ref={ref} />;
 }
 
-function LineChart({ labels, data, yPrefix = "€", darkMode }) {
+function LineChart({ labels, data, datasets, yPrefix = "€", darkMode }) {
   const ref = useRef(null);
   const chartRef = useRef(null);
   useEffect(() => {
     if (!ref.current) return;
     const tickColor = readToken(ref.current, "--text-2", "#6b7280");
     const gridColor = readToken(ref.current, "--border-light", "#e8ebee");
+    // Accept either a single `data` array (legacy) or a `datasets` list of
+    // { data, color, dashed, fill, width } for multi-line charts.
+    const src = (datasets && datasets.length) ? datasets : [{ data, color: "#2a78d6", fill: true }];
+    const chartDatasets = src.map((d) => ({
+      data: d.data,
+      borderColor: d.color || "#2a78d6",
+      backgroundColor: d.fill ? (d.color || "#2a78d6") + "1c" : "transparent",
+      borderWidth: d.width ?? 2,
+      borderDash: d.dashed ? [5, 4] : [],
+      pointRadius: 2,
+      pointHoverRadius: 4,
+      fill: !!d.fill,
+      tension: 0.35,
+      spanGaps: true,
+    }));
     if (chartRef.current) chartRef.current.destroy();
     chartRef.current = new Chart(ref.current, {
       type: "line",
-      data: {
-        labels,
-        datasets: [{
-          data,
-          borderColor: "#2a78d6",
-          backgroundColor: "#2a78d610",
-          borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          fill: true,
-          tension: 0.35,
-        }],
-      },
+      data: { labels, datasets: chartDatasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: { legend: { display: false } },
@@ -723,7 +731,7 @@ function LineChart({ labels, data, yPrefix = "€", darkMode }) {
       },
     });
     return () => chartRef.current?.destroy();
-  }, [labels, data, darkMode]);
+  }, [labels, data, datasets, darkMode]);
   return <canvas ref={ref} />;
 }
 
@@ -1125,6 +1133,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);   // Monthly-view cursor, decoupled from weekOffset
+  const [balanceView, setBalanceView] = useState("combined"); // Account-balance chart: combined | boi | revolut
   const [viewMode, setViewMode] = useState("weekly");
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
@@ -1580,13 +1589,42 @@ export default function App() {
     const now = new Date();
     return Math.min(0, (earliest.getFullYear() - now.getFullYear()) * 12 + (earliest.getMonth() - now.getMonth()));
   })();
-  const balanceDayMap = {};
-  transactions
-    .filter((t) => t.date >= monthFrom && t.date <= monthTo && t.balance != null)
-    .sort((a, b) => a.date - b.date)
-    .forEach((t) => { balanceDayMap[t.date.toISOString().slice(0, 10)] = t.balance; });
-  const balanceDays = Object.keys(balanceDayMap).sort();
-  const balanceData = balanceDays.map((d) => balanceDayMap[d]);
+  // ── Account balance chart: BOI + Revolut, both real running balances ─────────
+  const boiRowsSorted = transactions
+    .filter((t) => t.account === "BOI" && t.balance != null && t.date instanceof Date && !isNaN(t.date))
+    .sort((a, b) => a.date - b.date);
+  // Revolut CURRENT account only (savings-pot rows excluded), real Balance column.
+  const revRowsSorted = transactions
+    .filter((t) => t.account === "Revolut" && t.subaccount !== "savings" && t.balance != null && t.date instanceof Date && !isNaN(t.date))
+    .sort((a, b) => a.date - b.date);
+  const balAt = (rows, dayEnd) => { let bal = null; for (const t of rows) { if (t.date <= dayEnd) bal = Number(t.balance); else break; } return bal; };
+
+  // Day axis: days within the shown month with BOI or Revolut balance activity.
+  const __daySet = new Set();
+  for (const t of boiRowsSorted) if (t.date >= monthFrom && t.date <= monthTo) __daySet.add(t.date.toISOString().slice(0, 10));
+  for (const t of revRowsSorted) if (t.date >= monthFrom && t.date <= monthTo) __daySet.add(t.date.toISOString().slice(0, 10));
+  const balanceDays = [...__daySet].sort();
+  const __dayEnd = (d) => new Date(d + "T23:59:59.999");
+  const boiSeries = balanceDays.map((d) => balAt(boiRowsSorted, __dayEnd(d)));
+  const revSeries = balanceDays.map((d) => balAt(revRowsSorted, __dayEnd(d)));
+  const combinedSeries = balanceDays.map((d, i) => {
+    const b = boiSeries[i], r = revSeries[i];
+    if (b == null && r == null) return null;
+    return Math.round(((b ?? 0) + (r ?? 0)) * 100) / 100;
+  });
+  const boiLatest = boiRowsSorted.length ? Number(boiRowsSorted[boiRowsSorted.length - 1].balance) : null;
+  const revLatest = revRowsSorted.length ? Number(revRowsSorted[revRowsSorted.length - 1].balance) : null;
+
+  // Datasets per the Combined / BOI / Revolut toggle — both accounts are real, solid lines.
+  const balanceDatasets = balanceView === "boi"
+    ? [{ data: boiSeries, color: "#2a5fa5", fill: true, width: 2 }]
+    : balanceView === "revolut"
+    ? [{ data: revSeries, color: "#7c5cff", fill: true, width: 2 }]
+    : [
+        { data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 },
+        ...(boiRowsSorted.length ? [{ data: boiSeries, color: "#2a5fa5", fill: false, width: 1.4 }] : []),
+        ...(revRowsSorted.length ? [{ data: revSeries, color: "#7c5cff", fill: false, width: 1.4 }] : []),
+      ];
 
   // Monthly view
   const monthTxns = transactions.filter((t) => t.date >= monthFrom && t.date <= monthTo);
@@ -1669,20 +1707,25 @@ export default function App() {
     // When importing all dates, fetch all existing rows for this account (no date window).
     const dupQuery = supabase
       .from("transactions")
-      .select("date, description, amount")
+      .select("date, description, amount, balance")
       .eq("user_id", uid)
       .eq("account", accountLabel);
     const { data: existingForAcct } = await (importAllDates
       ? dupQuery
       : dupQuery.gte("date", from.toISOString()).lte("date", to.toISOString()));
-    const existingKeys = new Set(
-      (existingForAcct || []).map(t =>
-        `${t.date.slice(0, 10)}|${t.description}|${Math.round(parseFloat(t.amount) * 100)}`
-      )
-    );
+    // key → whether the existing row already has a real balance
+    const existingByKey = new Map();
+    for (const t of (existingForAcct || [])) {
+      const key = `${t.date.slice(0, 10)}|${t.description}|${Math.round(parseFloat(t.amount) * 100)}`;
+      const prev = existingByKey.get(key);
+      if (prev === undefined || (prev.balance == null && t.balance != null)) existingByKey.set(key, { balance: t.balance });
+    }
     const toInsert = withRules.filter(t => {
       const key = `${t.date.toISOString().slice(0, 10)}|${t.description}|${Math.round(t.amount * 100)}`;
-      return !existingKeys.has(key);
+      const existing = existingByKey.get(key);
+      if (!existing) return true;                                       // brand-new row
+      if (existing.balance == null && t.balance != null) return true;   // re-import to backfill a missing balance
+      return false;                                                     // already fully imported
     });
     const skipped = inRange.length - toInsert.length;
 
@@ -1711,7 +1754,7 @@ export default function App() {
           .map(t => ({
             id: t.id, date: t.date.toISOString(), description: t.description,
             amount: t.amount, category: t.category, account: accountLabel,
-            balance: t.balance ?? null, user_id: uid,
+            balance: t.balance ?? null, subaccount: t.subaccount ?? null, user_id: uid,
           }));
         if (vaultTxnRows.length > 0) {
           await supabase.from("transactions").upsert(vaultTxnRows, { onConflict: "id" });
@@ -1772,6 +1815,18 @@ export default function App() {
       }
     }
 
+    // Backfill: tag any already-imported Revolut savings-pot rows (imported before the
+    // subaccount column existed) so the current-account balance reconstruction excludes them.
+    const savingsIds = [...new Set(parsed.filter(t => t.subaccount === "savings").map(t => t.id))];
+    if (savingsIds.length > 0) {
+      const { error: sbErr } = await supabase.from("transactions")
+        .update({ subaccount: "savings" }).in("id", savingsIds).eq("user_id", uid).is("subaccount", null);
+      if (!sbErr) {
+        const idSet = new Set(savingsIds);
+        setTransactions(prev => prev.map(t => (idSet.has(t.id) && t.subaccount == null) ? { ...t, subaccount: "savings" } : t));
+      }
+    }
+
     if (toInsert.length === 0) {
       setImportMsg({ ok: true, text: `All ${inRange.length} transactions already imported${skipped > 0 ? ` — ${skipped} duplicate${skipped !== 1 ? "s" : ""} skipped` : ""}${vaultNote}.` });
       return;
@@ -1791,6 +1846,7 @@ export default function App() {
       category: savedCats[t.id] ?? t.category,
       account: accountLabel,
       balance: t.balance ?? null,
+      subaccount: t.subaccount ?? null,
       user_id: uid,
     }));
 
@@ -2533,16 +2589,33 @@ export default function App() {
 
             {balanceDays.length > 0 && (
               <div className="card">
-                <div className="card-title">Account balance — {monthLabel}</div>
+                <div className="balance-card-head">
+                  <div className="card-title" style={{ marginBottom: 0 }}>Cash balance — {monthLabel}</div>
+                  <div className="balance-toggle" role="group" aria-label="Balance view">
+                    <button type="button" className={balanceView === "combined" ? "active" : ""} onClick={() => setBalanceView("combined")}>Combined</button>
+                    <button type="button" className={balanceView === "boi" ? "active" : ""} onClick={() => setBalanceView("boi")}>BOI</button>
+                    <button type="button" className={balanceView === "revolut" ? "active" : ""} onClick={() => setBalanceView("revolut")}>Revolut</button>
+                  </div>
+                </div>
+
                 <div className="chart-wrap" style={{ height: 200 }}>
                   <LineChart
                     labels={balanceDays.map((d) => {
                       const dt = new Date(d + "T12:00:00");
                       return `${dt.getDate()} ${dt.toLocaleString("en-IE", { month: "short" })}`;
                     })}
-                    data={balanceData}
+                    datasets={balanceDatasets}
                     darkMode={darkMode}
                   />
+                </div>
+
+                <div className="balance-legend">
+                  {boiLatest != null && (
+                    <span className="balance-legend-item"><span className="balance-swatch boi" />BOI €{boiLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })} <span className="balance-tag">verified</span></span>
+                  )}
+                  {revLatest != null && (
+                    <span className="balance-legend-item"><span className="balance-swatch rev" />Revolut €{revLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })} <span className="balance-tag">verified</span></span>
+                  )}
                 </div>
               </div>
             )}
