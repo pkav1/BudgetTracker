@@ -95,6 +95,36 @@ function getMonthRangeByOffset(monthOffset = 0) {
   return { from: new Date(y, m, 1, 0, 0, 0, 0), to: new Date(y, m + 1, 0, 23, 59, 59, 999) };
 }
 
+// Hybrid work-time label: hours (+ minutes) while under one workday; "X days Y hours"
+// once it crosses a workday. hoursPerDay defines a workday (= hours/week ÷ 5).
+const plural = (n, unit) => `${n} ${unit}${n === 1 ? "" : "s"}`;
+function fmtWorkTime(totalHours, hoursPerDay) {
+  if (!isFinite(totalHours) || totalHours <= 0) return "—";
+  if (totalHours < hoursPerDay) {
+    const h = Math.floor(totalHours);
+    const m = Math.round((totalHours - h) * 60);
+    if (m === 60) return plural(h + 1, "hour");
+    if (h === 0) return plural(m, "min");
+    if (m === 0) return plural(h, "hour");
+    return `${plural(h, "hour")} ${plural(m, "min")}`;
+  }
+  const days = Math.floor(totalHours / hoursPerDay);
+  const remH = Math.round(totalHours - days * hoursPerDay);
+  if (remH === 0) return plural(days, "day");
+  if (remH >= hoursPerDay) return plural(days + 1, "day"); // rounding spilled into next day
+  return `${plural(days, "day")} ${plural(remH, "hour")}`;
+}
+// Compact variant for tight list rows: "5h 19m" / "1d 7h".
+function fmtWorkTimeShort(totalHours, hoursPerDay) {
+  if (!isFinite(totalHours) || totalHours <= 0) return "—";
+  if (totalHours < hoursPerDay) {
+    const h = Math.floor(totalHours), m = Math.round((totalHours - h) * 60);
+    return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
+  const days = Math.floor(totalHours / hoursPerDay), remH = Math.round(totalHours - days * hoursPerDay);
+  return remH === 0 ? `${days}d` : `${days}d ${remH}h`;
+}
+
 function catForDesc(desc) {
   const d = desc.toLowerCase();
   for (const c of CATEGORIES.slice(0, -1)) {
@@ -527,6 +557,8 @@ const PLANNER_DEFAULT = {
   fixed_costs: [],
   savings_dates: {},
   cash_balance: 0,
+  hours_per_week: 37.5,
+  hourly_wage_override: null,
 };
 
 const NAV_ITEMS = [
@@ -536,6 +568,7 @@ const NAV_ITEMS = [
   { id: "savings",      icon: "⬡", label: "Savings"       },
   { id: "investments",  icon: "↗", label: "Investments"   },
   { id: "planner",      icon: "▦", label: "Planner"       },
+  { id: "worthit",      icon: "◔", label: "Worth It?"     },
   { id: "statements",   icon: "↑", label: "Statements"    },
   { id: "settings",     icon: "⚙", label: "Settings"      },
 ];
@@ -544,7 +577,7 @@ const NAV_ITEMS = [
 const NAV_GROUPS = [
   { label: "Overview", ids: ["dashboard"] },
   { label: "Money",    ids: ["transactions", "statements"] },
-  { label: "Plan",     ids: ["budget", "planner"] },
+  { label: "Plan",     ids: ["budget", "planner", "worthit"] },
   { label: "Grow",     ids: ["savings", "investments"] },
   { label: "System",   ids: ["settings"] },
 ];
@@ -586,6 +619,10 @@ const ICON_SHAPES = {
   investments: (<>
     <path d="M3.5 16.5l5-5 4 3 7.5-8" />
     <path d="M15.5 6.5h5V11.5" />
+  </>),
+  worthit: (<>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3.5 2" />
   </>),
   settings: (<>
     <path d="M4 7h3M11 7h9" /><circle cx="9" cy="7" r="2" />
@@ -1095,6 +1132,11 @@ export default function App() {
   const [importMsg, setImportMsg] = useState(null);
   const [pwResetMsg, setPwResetMsg] = useState(null);
   const [planner, setPlanner] = useState(PLANNER_DEFAULT);
+  const [purchaseChecks, setPurchaseChecks] = useState([]); // "Worth It?" history
+  const [wcName, setWcName] = useState("");
+  const [wcCost, setWcCost] = useState("");
+  const [wcKind, setWcKind] = useState("want");
+  const [worthSaveError, setWorthSaveError] = useState(null);
   const [portfolio, setPortfolio] = useState(null);   // null=never fetched, []=empty, [{…}]=loaded
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState(null);
@@ -1329,7 +1371,8 @@ export default function App() {
       supabase.from("merchant_rules").select("*").eq("user_id", uid).order("merchant"),
       supabase.from("planner").select("*").eq("user_id", uid).limit(1),
       supabase.from("net_worth_snapshots").select("*").eq("user_id", uid).order("date", { ascending: true }),
-    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }, { data: dbSnapshots }]) => {
+      supabase.from("purchase_checks").select("*").eq("user_id", uid).order("created_at", { ascending: false }),
+    ]).then(([{ data: dbBudgets }, { data: dbTxns }, { data: dbSavings }, { data: dbRules }, { data: dbPlanner }, { data: dbSnapshots }, { data: dbChecks }]) => {
       if (dbBudgets?.length) {
         setBudgets(CATEGORIES.map((c) => {
           const db = dbBudgets.find((b) => b.name === c.name)
@@ -1443,9 +1486,12 @@ export default function App() {
           fixed_costs: p.fixed_costs ?? [],
           savings_dates: p.savings_dates ?? {},
           cash_balance: p.cash_balance ?? 0,
+          hours_per_week: p.hours_per_week ?? 37.5,
+          hourly_wage_override: p.hourly_wage_override ?? null,
         });
       }
       setNetWorthSnapshots(dbSnapshots ?? []);
+      setPurchaseChecks(dbChecks ?? []);
       setLoading(false);
     });
   }, [session?.user?.id]);
@@ -1877,11 +1923,13 @@ export default function App() {
       supabase.from("savings").delete().eq("user_id", uid),
       supabase.from("budgets").delete().eq("user_id", uid),
       supabase.from("merchant_rules").delete().eq("user_id", uid),
+      supabase.from("purchase_checks").delete().eq("user_id", uid),
     ]);
     setTransactions([]);
     setSavings([]);
     setBudgets(CATEGORIES.map((c) => ({ ...c, cadence: c.cadence ?? "weekly" })));
     setMerchantRules([]);
+    setPurchaseChecks([]);
   }
 
   // ── Planner ────────────────────────────────────────────────────────────────
@@ -1896,6 +1944,8 @@ export default function App() {
       fixed_costs: p.fixed_costs,
       savings_dates: p.savings_dates,
       cash_balance: p.cash_balance,
+      hours_per_week: p.hours_per_week,
+      hourly_wage_override: p.hourly_wage_override,
     };
     let error;
     if (p.id) {
@@ -1921,6 +1971,35 @@ export default function App() {
       debounceSave("planner", () => persistPlanner(next));
       return next;
     });
+  }
+
+  // ── Worth It? — save/remove a purchase check ──────────────────────────────
+  async function addPurchaseCheck() {
+    const name = wcName.trim();
+    const cost = parseFloat(wcCost) || 0;
+    if (!name || cost <= 0) return;
+    const uid = session.user.id;
+    const row = { user_id: uid, name, cost, kind: wcKind, hourly_wage: hourlyWage > 0 ? hourlyWage : null };
+    const { data, error } = await supabase.from("purchase_checks").insert(row).select().single();
+    if (error) {
+      console.error("[purchase_checks insert failed]", error);
+      const parts = [error.code, error.message, error.details, error.hint && `hint: ${error.hint}`].filter(Boolean);
+      setWorthSaveError(parts.join(" · "));
+      return;
+    }
+    setWorthSaveError(null);
+    setPurchaseChecks((prev) => [data, ...prev]);
+    setWcName(""); setWcCost(""); setWcKind("want");
+  }
+  async function deletePurchaseCheck(id) {
+    const uid = session.user.id;
+    const prev = purchaseChecks;
+    setPurchaseChecks((cur) => cur.filter((p) => p.id !== id)); // optimistic
+    const { error } = await supabase.from("purchase_checks").delete().eq("id", id).eq("user_id", uid);
+    if (error) {
+      console.error("[purchase_checks delete failed]", error);
+      setPurchaseChecks(prev); // roll back
+    }
   }
 
   function addFixedCost() {
@@ -2020,6 +2099,22 @@ export default function App() {
       latestBalance, totalSavings, pfTotalValue, netWorthTotal, todayStr]);
 
   // ── Planner derived ────────────────────────────────────────────────────────
+
+  // Worth It? — hourly wage derived from take-home income (override wins if set).
+  const hoursPerWeek = Number(planner.hours_per_week) > 0 ? Number(planner.hours_per_week) : 37.5;
+  const hoursPerDay = hoursPerWeek / 5; // a "workday" for the hours→days threshold
+  const derivedHourly = (Number(planner.monthly_income) * 12) / (52 * hoursPerWeek);
+  const hasWageOverride = planner.hourly_wage_override != null && Number(planner.hourly_wage_override) > 0;
+  const hourlyWage = hasWageOverride ? Number(planner.hourly_wage_override) : (derivedHourly > 0 ? derivedHourly : 0);
+  const wcCostNum = parseFloat(wcCost) || 0;
+  const wcHours = hourlyWage > 0 ? wcCostNum / hourlyWage : 0;
+  // Hours a stored check represents — prefer its snapshot wage, fall back to current.
+  const checkHours = (c) => {
+    const w = Number(c.hourly_wage) > 0 ? Number(c.hourly_wage) : hourlyWage;
+    return w > 0 ? Number(c.cost) / w : 0;
+  };
+  const wantsHours = purchaseChecks.filter((c) => c.kind === "want").reduce((s, c) => s + checkHours(c), 0);
+  const needsHours = purchaseChecks.filter((c) => c.kind === "need").reduce((s, c) => s + checkHours(c), 0);
 
   const investEur = planner.investment_mode === "pct"
     ? (planner.monthly_income * planner.investment_amount) / 100
@@ -3474,6 +3569,135 @@ export default function App() {
                 </div>
                 <button className="danger-btn" onClick={deleteAllData}>Delete</button>
               </div>
+            </div>
+          </>
+        )}
+
+        {/* WORTH IT? */}
+        {tab === "worthit" && (
+          <>
+            <TabHeader
+              eyebrow="Worth It?"
+              sub={hourlyWage > 0 ? "what an hour of your work is worth" : "set your income in Planner to begin"}
+            >
+              {hourlyWage > 0
+                ? <><CountUp value={hourlyWage} prefix="€" decimals={hourlyWage < 100 ? 2 : 0} /> <span className="worth-hr-unit">/ hr</span></>
+                : <span style={{ color: "var(--text-3)" }}>€— / hr</span>}
+            </TabHeader>
+
+            {worthSaveError && (
+              <div className="import-msg err" style={{ marginBottom: "1rem", wordBreak: "break-word" }}>
+                Couldn’t save: {worthSaveError}
+              </div>
+            )}
+
+            <div className="worth-grid">
+              {/* Calculator */}
+              <div className="card worth-calc">
+                <div className="card-title">What are you considering?</div>
+                <div className="worth-input-row">
+                  <input
+                    className="worth-name-input"
+                    placeholder="e.g. AirPods Pro"
+                    value={wcName}
+                    onChange={(e) => setWcName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") addPurchaseCheck(); }}
+                  />
+                  <div className="worth-cost-wrap">
+                    <span className="worth-cost-currency">€</span>
+                    <input
+                      className="worth-cost-input"
+                      type="number" min="0" step="5" placeholder="0"
+                      value={wcCost}
+                      onChange={(e) => setWcCost(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addPurchaseCheck(); }}
+                    />
+                  </div>
+                  <div className="worth-kind-toggle" role="group" aria-label="Want or need">
+                    <button type="button" className={wcKind === "want" ? "active" : ""} onClick={() => setWcKind("want")}>Want</button>
+                    <button type="button" className={wcKind === "need" ? "active" : ""} onClick={() => setWcKind("need")}>Need</button>
+                  </div>
+                </div>
+
+                <div className="worth-result">
+                  {hourlyWage <= 0 ? (
+                    <div className="worth-result-empty">Set your hourly rate on the right, or add your income in Planner, to see the time cost.</div>
+                  ) : wcCostNum > 0 ? (
+                    <>
+                      <div className="worth-result-lead">That’s about</div>
+                      <div className="worth-result-time">{fmtWorkTime(wcHours, hoursPerDay)}</div>
+                      <div className="worth-result-sub">of work · at €{hourlyWage.toFixed(2)}/hr</div>
+                    </>
+                  ) : (
+                    <div className="worth-result-empty">Enter a price to see how many hours of work it costs.</div>
+                  )}
+                </div>
+
+                <button className="worth-check-btn" onClick={addPurchaseCheck} disabled={!wcName.trim() || wcCostNum <= 0}>
+                  Save to history
+                </button>
+              </div>
+
+              {/* Rate settings */}
+              <div className="card worth-rate">
+                <div className="card-title">Your rate</div>
+                <div className="worth-rate-row">
+                  <label className="worth-rate-label" htmlFor="wc-hpw">Hours worked / week</label>
+                  <input
+                    id="wc-hpw" className="worth-rate-input" type="number" min="1" step="0.5"
+                    value={planner.hours_per_week ?? ""}
+                    placeholder="37.5"
+                    onChange={(e) => updatePlanner({ hours_per_week: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="worth-rate-row">
+                  <label className="worth-rate-label" htmlFor="wc-override">Hourly wage override</label>
+                  <div className="worth-cost-wrap">
+                    <span className="worth-cost-currency">€</span>
+                    <input
+                      id="wc-override" className="worth-rate-input worth-rate-input-euro" type="number" min="0" step="0.5"
+                      value={planner.hourly_wage_override ?? ""}
+                      placeholder={derivedHourly > 0 ? derivedHourly.toFixed(2) : "—"}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        updatePlanner({ hourly_wage_override: v === "" ? null : (parseFloat(v) || 0) });
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="worth-rate-hint">
+                  {hourlyWage > 0
+                    ? <>Using <b>€{hourlyWage.toFixed(2)}/hr</b> · {hasWageOverride ? "manual override" : "from Planner income"} · workday ≈ {hoursPerDay % 1 === 0 ? hoursPerDay : hoursPerDay.toFixed(1)}h</>
+                    : <>No wage yet — add take-home income in <button className="link-btn" onClick={() => setTab("planner")}>Planner</button>, or set an override above.</>}
+                </div>
+              </div>
+            </div>
+
+            {/* History */}
+            <div className="card">
+              <div className="worth-history-head">
+                <div className="card-title" style={{ marginBottom: 0 }}>Recently weighed</div>
+                {purchaseChecks.length > 0 && (
+                  <div className="worth-history-totals">
+                    {fmtWorkTimeShort(wantsHours, hoursPerDay)} wants · {fmtWorkTimeShort(needsHours, hoursPerDay)} needs
+                  </div>
+                )}
+              </div>
+              {purchaseChecks.length === 0 ? (
+                <EmptyState icon="worthit" headline="Nothing weighed yet" sub="Check something above to start building a history of your decisions." />
+              ) : (
+                <div className="worth-history-list">
+                  {purchaseChecks.map((c) => (
+                    <div className="worth-history-row" key={c.id}>
+                      <span className={`worth-kind-badge ${c.kind}`}>{c.kind}</span>
+                      <span className="worth-history-name">{c.name}</span>
+                      <span className="worth-history-cost">€{Number(c.cost).toFixed(0)}</span>
+                      <span className="worth-history-time">{fmtWorkTimeShort(checkHours(c), hoursPerDay)}</span>
+                      <button className="remove-btn" title="Remove" onClick={() => deletePurchaseCheck(c.id)}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}

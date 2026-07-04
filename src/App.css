@@ -552,6 +552,102 @@ input, select, textarea, button { font-family: inherit; }
   font-size: 13px; color: var(--text-2); line-height: 1.5;
 }
 
+/* ── Worth It? ──────────────────────────────────────────────────────────────── */
+.worth-grid {
+  display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px; margin-bottom: 16px; align-items: start;
+}
+.worth-hr-unit { font-size: 0.5em; font-weight: 600; color: var(--text-3); letter-spacing: 0; }
+
+.worth-input-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 4px; }
+.worth-name-input {
+  flex: 1 1 160px; min-width: 0; font-family: inherit; font-size: 14px;
+  padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 10px;
+  background: var(--surface-2); color: var(--text-1); outline: none;
+}
+.worth-cost-wrap {
+  display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+  padding: 0 10px; border: 1px solid var(--border-light); border-radius: 10px; background: var(--surface-2);
+}
+.worth-cost-currency { color: var(--text-3); font-size: 14px; font-weight: 600; }
+.worth-cost-input {
+  width: 84px; font-family: inherit; font-size: 14px; padding: 10px 2px;
+  border: none; background: none; color: var(--text-1); outline: none;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.worth-cost-input::-webkit-outer-spin-button,
+.worth-cost-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.worth-kind-toggle {
+  display: inline-flex; flex-shrink: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.worth-kind-toggle button {
+  border: none; background: var(--surface); color: var(--text-3);
+  font-family: inherit; font-size: 13px; font-weight: 600; padding: 9px 16px; cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.worth-kind-toggle button + button { border-left: 1px solid var(--border); }
+.worth-kind-toggle button.active { background: var(--accent); color: #fff; }
+
+.worth-result {
+  margin: 14px 0; padding: 18px; border-radius: 12px; text-align: center;
+  background: var(--accent-bg); border: 1px solid var(--border-light); min-height: 96px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+}
+.worth-result-lead { font-size: 12px; color: var(--text-2); }
+.worth-result-time {
+  font-size: 30px; font-weight: 700; letter-spacing: -0.6px; color: var(--text-1);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.worth-result-sub { font-size: 12px; color: var(--text-3); }
+.worth-result-empty { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+.worth-check-btn {
+  width: 100%; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 600;
+  background: var(--accent); color: #fff; border: none; border-radius: 10px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(37,99,235,.22); transition: opacity 0.15s;
+}
+.worth-check-btn:hover:not(:disabled) { opacity: 0.92; }
+.worth-check-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+
+.worth-rate-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.worth-rate-label { font-size: 13px; color: var(--text-2); }
+.worth-rate-input {
+  width: 88px; font-family: inherit; font-size: 14px; padding: 9px 11px; text-align: right;
+  border: 1px solid var(--border-light); border-radius: 9px; background: var(--surface-2); color: var(--text-1);
+  outline: none; -moz-appearance: textfield; appearance: textfield;
+}
+.worth-rate-input::-webkit-outer-spin-button,
+.worth-rate-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.worth-rate-input-euro { width: 72px; border: none; background: none; padding: 9px 2px; }
+.worth-rate-hint { font-size: 12px; color: var(--text-3); line-height: 1.5; margin-top: 2px; }
+.link-btn {
+  border: none; background: none; padding: 0; font: inherit; color: var(--accent);
+  cursor: pointer; text-decoration: underline;
+}
+
+.worth-history-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.worth-history-totals { font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.worth-history-list { display: flex; flex-direction: column; }
+.worth-history-row {
+  display: grid; grid-template-columns: 56px 1fr auto auto 24px; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-light);
+}
+.worth-history-row:last-child { border-bottom: none; }
+.worth-kind-badge {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  text-align: center; padding: 3px 0; border-radius: 5px;
+}
+.worth-kind-badge.want { background: var(--amber-bg); color: var(--amber); }
+.worth-kind-badge.need { background: var(--green-bg); color: var(--green); }
+.worth-history-name { font-size: 14px; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.worth-history-cost { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; }
+.worth-history-time { font-size: 13px; font-weight: 600; color: var(--text-1); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .worth-grid { grid-template-columns: 1fr; }
+}
+
 /* ── Week nav ───────────────────────────────────────────────────────────────── */
 .week-nav { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
 .week-label { flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: var(--text-1); }
