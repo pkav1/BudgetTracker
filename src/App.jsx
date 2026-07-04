@@ -1615,28 +1615,12 @@ export default function App() {
   const boiLatest = boiRowsSorted.length ? Number(boiRowsSorted[boiRowsSorted.length - 1].balance) : null;
   const revLatest = revRowsSorted.length ? Number(revRowsSorted[revRowsSorted.length - 1].balance) : null;
 
-  // TEMP DEBUG — Revolut per-day balance investigation (remove after)
-  const __revAll = transactions.filter((t) => t.account === "Revolut" && t.subaccount !== "savings");
-  const __revDbg = {
-    revCurrentRows: __revAll.length,
-    withBalance: revRowsSorted.length,
-    nullBalance: __revAll.filter((t) => t.balance == null).length,
-    distinctBalances: [...new Set(revRowsSorted.map((t) => Number(t.balance)))].slice(0, 15),
-    monthRows: revRowsSorted.filter((t) => t.date >= monthFrom && t.date <= monthTo)
-      .map((t) => `${t.date.toISOString().slice(0, 10)} | amt ${t.amount} | bal ${t.balance}`),
-    perDay: balanceDays.map((d, i) => `${d}: rev=${revSeries[i]}  boi=${boiSeries[i]}`),
-  };
-
-  // Datasets per the Combined / BOI / Revolut toggle — both accounts are real, solid lines.
+  // Datasets per the Combined / BOI / Revolut toggle — real, solid lines.
   const balanceDatasets = balanceView === "boi"
     ? [{ data: boiSeries, color: "#2a5fa5", fill: true, width: 2 }]
     : balanceView === "revolut"
     ? [{ data: revSeries, color: "#7c5cff", fill: true, width: 2 }]
-    : [
-        { data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 },
-        ...(boiRowsSorted.length ? [{ data: boiSeries, color: "#2a5fa5", fill: false, width: 1.4 }] : []),
-        ...(revRowsSorted.length ? [{ data: revSeries, color: "#7c5cff", fill: false, width: 1.4 }] : []),
-      ];
+    : [{ data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 }];
 
   // Monthly view
   const monthTxns = transactions.filter((t) => t.date >= monthFrom && t.date <= monthTo);
@@ -2329,16 +2313,6 @@ export default function App() {
         {/* DASHBOARD */}
         {tab === "dashboard" && (
           <>
-            {/* TEMP DEBUG — Revolut balance readout (remove after) */}
-            <div style={{ background: "#fff3cd", color: "#5c4a00", border: "1px solid #e0c060", borderRadius: 8, padding: "10px 12px", margin: "0 0 14px", fontSize: 12, fontFamily: "monospace", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {`REVOLUT DEBUG — viewing ${monthLabel} (switch to Monthly + navigate to June)
-current-account rows: ${__revDbg.revCurrentRows}   with real balance: ${__revDbg.withBalance}   still null: ${__revDbg.nullBalance}
-distinct balance values (first 15): ${__revDbg.distinctBalances.join(", ") || "(none)"}
-Revolut rows in view with balance:
-${__revDbg.monthRows.join("\n") || "(none this month)"}
-per-day series:
-${__revDbg.perDay.join("\n") || "(no days)"}`}
-            </div>
             {/* ── Net worth hero ── */}
             <div className="networth-hero">
               <div className="networth-label">Net Worth</div>
