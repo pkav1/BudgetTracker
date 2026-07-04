@@ -1532,10 +1532,15 @@ export default function App() {
   const weekTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.amount < 0);
   const weekSpendTxns = weekTxns.filter((t) => t.category !== "Transfers");
   const weekTransferTxns = transactions.filter((t) => t.date >= start && t.date <= end && t.category === "Transfers");
-  const totalSpent = weekSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
-  // Weekly budget total (weekly-cadence limits only) — drives "remaining this week"
-  const totalBudget = budgets.filter((b) => b.name !== "Transfers" && b.cadence !== "monthly").reduce((s, b) => s + b.limit_amount, 0);
-  const remaining = totalBudget - totalSpent;
+  // "Remaining this week" compares weekly-cadence budget against weekly-cadence spend.
+  // Both sides derive from one shared category set so they can't drift apart.
+  const weeklyCadenceBudgets = budgets.filter((b) => b.name !== "Transfers" && b.cadence !== "monthly");
+  const weeklyCadenceNames = new Set(weeklyCadenceBudgets.map((b) => b.name));
+  const totalBudget = weeklyCadenceBudgets.reduce((s, b) => s + b.limit_amount, 0);
+  const weeklyCadenceSpent = weekSpendTxns
+    .filter((t) => weeklyCadenceNames.has(t.category))
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+  const remaining = totalBudget - weeklyCadenceSpent;
   const totalSavings = savings.reduce((s, v) => s + v.balance, 0);
 
   // Tile-specific derived values — current week always (not affected by weekOffset nav)
