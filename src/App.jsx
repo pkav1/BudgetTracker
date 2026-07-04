@@ -2162,22 +2162,6 @@ export default function App() {
     .forEach((t) => { budgetMonthSpent[t.category] = (budgetMonthSpent[t.category] || 0) + Math.abs(t.amount); });
   const budgetMonthTotalSpent = Object.values(budgetMonthSpent).reduce((s, v) => s + v, 0);
   const budgetMonthPct = budgetMonthlyTotal > 0 ? (budgetMonthTotalSpent / budgetMonthlyTotal) * 100 : null;
-  // TEMP DEBUG — remove after diagnosing the €0-spend issue
-  const __neg = transactions.filter((t) => t.amount < 0);
-  const __byMonth = {};
-  __neg.filter((t) => t.category !== "Transfers" && t.date instanceof Date && !isNaN(t.date))
-    .forEach((t) => { const k = t.date.toISOString().slice(0, 7); __byMonth[k] = (__byMonth[k] || 0) + Math.abs(t.amount); });
-  const __catCount = {};
-  __neg.forEach((t) => { __catCount[t.category] = (__catCount[t.category] || 0) + 1; });
-  const __dbg = {
-    txns: transactions.length,
-    neg: __neg.length,
-    transferNeg: __neg.filter((t) => t.category === "Transfers").length,
-    nonTransferNeg: __neg.filter((t) => t.category !== "Transfers").length,
-    monthSpent: budgetMonthTotalSpent,
-    byMonth: Object.entries(__byMonth).sort().slice(-6).map(([k, v]) => `${k}: €${v.toFixed(0)}`),
-    topCats: Object.entries(__catCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `${k}=${v}`),
-  };
   // Per-category spend over the category's own cadence period (week vs month-to-date)
   const budgetSpentFor = (b) => (b.cadence === "monthly" ? budgetMonthSpent[b.name] : budgetWeekSpent[b.name]) || 0;
 
@@ -2275,16 +2259,6 @@ export default function App() {
         {/* DASHBOARD */}
         {tab === "dashboard" && (
           <>
-            {/* TEMP DEBUG — remove after diagnosing the €0-spend issue */}
-            <div style={{ background: "#fff3cd", color: "#5c4a00", border: "1px solid #e0c060", borderRadius: 8, padding: "10px 12px", margin: "0 0 14px", fontSize: 12, fontFamily: "monospace", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {`TEMP DEBUG (tell me these, then I'll remove this)
-negatives: ${__dbg.neg}   as Transfers: ${__dbg.transferNeg}   NOT Transfers: ${__dbg.nonTransferNeg}
-current-month spent: €${__dbg.monthSpent}
-non-transfer spend by month:
-${__dbg.byMonth.join("\n") || "(none)"}
-categories of negatives (count):
-${__dbg.topCats.join("   ")}`}
-            </div>
             {/* ── Net worth hero ── */}
             <div className="networth-hero">
               <div className="networth-label">Net Worth</div>
@@ -2485,17 +2459,22 @@ ${__dbg.topCats.join("   ")}`}
 
               <button className="snap-tile" onClick={() => setTab("budget")}>
                 <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="budget" size={13} /></span>Budget</div>
-                {budgetMonthlyTotal > 0 ? (
+                {budgetMonthlyTotal <= 0 ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
+                    <div className="snap-tile-sub">No budgets set</div>
+                  </>
+                ) : budgetMonthTotalSpent <= 0 ? (
+                  <>
+                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)", lineHeight: 1.35 }}>New month, nothing spent yet</div>
+                    <div className="snap-tile-sub">€{fmt0(budgetMonthlyTotal)}/mo budget</div>
+                  </>
+                ) : (
                   <>
                     <div className="snap-tile-primary" style={{ color: budgetMonthPct >= 100 ? "var(--red)" : budgetMonthPct >= 80 ? "var(--amber)" : "var(--green)" }}>
                       €{budgetMonthTotalSpent.toFixed(0)}
                     </div>
                     <div className="snap-tile-sub">{budgetMonthPct.toFixed(0)}% · €{fmt0(budgetMonthlyTotal)}/mo budget</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="snap-tile-primary" style={{ color: "var(--text-3)" }}>—</div>
-                    <div className="snap-tile-sub">No budgets set</div>
                   </>
                 )}
               </button>
