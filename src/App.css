@@ -570,7 +570,6 @@ input, select, textarea, button { font-family: inherit; }
 .balance-swatch { width: 15px; height: 0; border-top: 2px solid; display: inline-block; }
 .balance-swatch.boi { border-top-color: #2a5fa5; }
 .balance-swatch.rev { border-top-color: #7c5cff; }
-.balance-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--green); }
 
 /* ── Worth It? ──────────────────────────────────────────────────────────────── */
 .worth-grid {

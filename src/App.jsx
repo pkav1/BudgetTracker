@@ -2586,7 +2586,7 @@ export default function App() {
             {balanceDays.length > 0 && (
               <div className="card">
                 <div className="balance-card-head">
-                  <div className="card-title" style={{ marginBottom: 0 }}>Cash balance — {monthLabel}</div>
+                  <div className="card-title" style={{ marginBottom: 0 }}>Account balance — {monthLabel}</div>
                   <div className="balance-toggle" role="group" aria-label="Balance view">
                     <button type="button" className={balanceView === "combined" ? "active" : ""} onClick={() => setBalanceView("combined")}>Combined</button>
                     <button type="button" className={balanceView === "boi" ? "active" : ""} onClick={() => setBalanceView("boi")}>BOI</button>
@@ -2607,10 +2607,10 @@ export default function App() {
 
                 <div className="balance-legend">
                   {boiLatest != null && (
-                    <span className="balance-legend-item"><span className="balance-swatch boi" />BOI €{boiLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })} <span className="balance-tag">verified</span></span>
+                    <span className="balance-legend-item"><span className="balance-swatch boi" />BOI €{boiLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })}</span>
                   )}
                   {revLatest != null && (
-                    <span className="balance-legend-item"><span className="balance-swatch rev" />Revolut €{revLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })} <span className="balance-tag">verified</span></span>
+                    <span className="balance-legend-item"><span className="balance-swatch rev" />Revolut €{revLatest.toLocaleString("en-IE", { maximumFractionDigits: 0 })}</span>
                   )}
                 </div>
               </div>
