@@ -2163,16 +2163,20 @@ export default function App() {
   const budgetMonthTotalSpent = Object.values(budgetMonthSpent).reduce((s, v) => s + v, 0);
   const budgetMonthPct = budgetMonthlyTotal > 0 ? (budgetMonthTotalSpent / budgetMonthlyTotal) * 100 : null;
   // TEMP DEBUG — remove after diagnosing the €0-spend issue
-  const __dbgDates = transactions.map((t) => t.date).filter((d) => d instanceof Date && !isNaN(d.getTime()));
+  const __neg = transactions.filter((t) => t.amount < 0);
+  const __byMonth = {};
+  __neg.filter((t) => t.category !== "Transfers" && t.date instanceof Date && !isNaN(t.date))
+    .forEach((t) => { const k = t.date.toISOString().slice(0, 7); __byMonth[k] = (__byMonth[k] || 0) + Math.abs(t.amount); });
+  const __catCount = {};
+  __neg.forEach((t) => { __catCount[t.category] = (__catCount[t.category] || 0) + 1; });
   const __dbg = {
     txns: transactions.length,
-    validDates: __dbgDates.length,
-    negAmts: transactions.filter((t) => t.amount < 0).length,
-    minDate: __dbgDates.length ? new Date(Math.min(...__dbgDates.map((d) => d.getTime()))).toISOString().slice(0, 10) : "—",
-    maxDate: __dbgDates.length ? new Date(Math.max(...__dbgDates.map((d) => d.getTime()))).toISOString().slice(0, 10) : "—",
-    monthStart: budgetMonthStart.toISOString().slice(0, 10),
+    neg: __neg.length,
+    transferNeg: __neg.filter((t) => t.category === "Transfers").length,
+    nonTransferNeg: __neg.filter((t) => t.category !== "Transfers").length,
     monthSpent: budgetMonthTotalSpent,
-    samples: transactions.slice(0, 4).map((t) => `${t.date instanceof Date && !isNaN(t.date) ? t.date.toISOString().slice(0, 10) : `[${typeof t.date}] ${String(t.date)}`} | amt=${t.amount} (${typeof t.amount}) | ${t.category}`),
+    byMonth: Object.entries(__byMonth).sort().slice(-6).map(([k, v]) => `${k}: €${v.toFixed(0)}`),
+    topCats: Object.entries(__catCount).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `${k}=${v}`),
   };
   // Per-category spend over the category's own cadence period (week vs month-to-date)
   const budgetSpentFor = (b) => (b.cadence === "monthly" ? budgetMonthSpent[b.name] : budgetWeekSpent[b.name]) || 0;
@@ -2273,12 +2277,13 @@ export default function App() {
           <>
             {/* TEMP DEBUG — remove after diagnosing the €0-spend issue */}
             <div style={{ background: "#fff3cd", color: "#5c4a00", border: "1px solid #e0c060", borderRadius: 8, padding: "10px 12px", margin: "0 0 14px", fontSize: 12, fontFamily: "monospace", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {`TEMP DEBUG (tell me these numbers, then I'll remove this)
-transactions: ${__dbg.txns}   valid Date objs: ${__dbg.validDates}   amount<0: ${__dbg.negAmts}
-date range: ${__dbg.minDate} → ${__dbg.maxDate}
-this-month starts: ${__dbg.monthStart}   month spent: €${__dbg.monthSpent}
-samples:
-${__dbg.samples.join("\n") || "(no transactions)"}`}
+              {`TEMP DEBUG (tell me these, then I'll remove this)
+negatives: ${__dbg.neg}   as Transfers: ${__dbg.transferNeg}   NOT Transfers: ${__dbg.nonTransferNeg}
+current-month spent: €${__dbg.monthSpent}
+non-transfer spend by month:
+${__dbg.byMonth.join("\n") || "(none)"}
+categories of negatives (count):
+${__dbg.topCats.join("   ")}`}
             </div>
             {/* ── Net worth hero ── */}
             <div className="networth-hero">
