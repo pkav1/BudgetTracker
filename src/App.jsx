@@ -2164,7 +2164,11 @@ export default function App() {
     // Don't record a not-ready / all-zero net worth — wait until there's something real to save.
     // (The effect re-runs when netWorthTotal changes, so it captures the value once it's positive.)
     if (netWorthTotal <= 0) return;
-    if (netWorthSnapshots.some(s => String(s.date).slice(0, 10) === todayStr)) {
+    // If today's row already matches the live total, leave it. If it exists but is stale
+    // (e.g. Cash was set after it was first written), fall through to the upsert below so it
+    // self-heals to the current Account + Savings + Investments + Cash total.
+    const todayRow = netWorthSnapshots.find(s => String(s.date).slice(0, 10) === todayStr);
+    if (todayRow && Math.abs(Number(todayRow.total) - netWorthTotal) < 0.5) {
       snapshotSavedRef.current = true;
       return;
     }
@@ -2182,8 +2186,13 @@ export default function App() {
       }, { onConflict: "user_id,date" })   // one row per user per day — can't duplicate
       .select()
       .then(({ data, error }) => {
-        if (error) snapshotSavedRef.current = false;              // allow a retry next load
-        else if (data?.length) setNetWorthSnapshots(prev => [...prev, ...data]);
+        if (error) { snapshotSavedRef.current = false; return; }  // allow a retry next load
+        if (data?.length) {
+          const saved = data[0];
+          const day = String(saved.date).slice(0, 10);
+          // Replace any existing row for this day (update case) instead of appending a duplicate.
+          setNetWorthSnapshots(prev => [...prev.filter(s => String(s.date).slice(0, 10) !== day), saved]);
+        }
       });
   }, [session?.user?.id, loading, portfolio, portfolioError, netWorthSnapshots,
       latestBalance, totalSavings, pfTotalValue, netWorthTotal, todayStr]);
