@@ -1636,6 +1636,16 @@ input, select, textarea, button { font-family: inherit; }
 .filter-total { font-size: 13px; font-weight: 500; }
 .filter-total.in  { color: var(--green); }
 .filter-total.out { color: var(--text-1); }
+.filter-summary-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.export-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; user-select: none; white-space: nowrap; }
+.export-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
+.export-btn {
+  font-family: inherit; font-size: 12px; font-weight: 600; color: #fff; background: var(--accent);
+  border: none; border-radius: 8px; padding: 7px 13px; cursor: pointer; white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.export-btn:hover:not(:disabled) { opacity: 0.92; }
+.export-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── PIN lock screen ────────────────────────────────────────────────────────── */
 .pin-dots {

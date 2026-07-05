@@ -1177,6 +1177,7 @@ export default function App() {
   const [txnDateTo, setTxnDateTo] = useState("");
   const [filtersStuck, setFiltersStuck] = useState(false); // toolbar pinned to top after scroll
   const [filtersOpen, setFiltersOpen] = useState(false);   // manual expand while pinned
+  const [exportFilteredOnly, setExportFilteredOnly] = useState(true); // CSV export: filtered vs everything
   const [recurringOpen, setRecurringOpen] = useState(false); // collapsible recurring panel
   const [rulesExpanded, setRulesExpanded] = useState(false); // Settings: show all merchant rules
   const [plannerSaveError, setPlannerSaveError] = useState(null); // surfaced Supabase error, if any
@@ -1200,6 +1201,30 @@ export default function App() {
   }
   function clearTxnFilters() {
     setTxnSearch(""); setTxnAccounts([]); setTxnCategories([]); setTxnDateFrom(""); setTxnDateTo("");
+  }
+  function exportTxnsCsv() {
+    const rows = [...(exportFilteredOnly ? filteredTxns : transactions)].sort((a, b) => b.date - a.date);
+    const esc = (v) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["Date", "Description", "Category", "Account", "Amount", "Balance"];
+    const lines = [header.join(",")];
+    for (const t of rows) {
+      const d = (t.date instanceof Date && !isNaN(t.date)) ? t.date.toISOString().slice(0, 10) : "";
+      const bal = (t.balance != null && !isNaN(Number(t.balance))) ? Number(t.balance).toFixed(2) : "";
+      lines.push([d, esc(t.description), esc(t.category), esc(t.account), Number(t.amount).toFixed(2), bal].join(","));
+    }
+    const csv = "﻿" + lines.join("\r\n");   // BOM so accents open correctly in Excel
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transactions-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // ── PIN management ────────────────────────────────────────────────────────
@@ -2803,13 +2828,20 @@ export default function App() {
                 <span className="filter-count">
                   {hasActiveTxnFilters ? "Filtered" : "All"} · {filteredTxns.length} transaction{filteredTxns.length !== 1 ? "s" : ""}
                 </span>
-                <div className="filter-totals">
-                  {filteredIncome > 0 && (
-                    <span className="filter-total in">+€{filteredIncome.toFixed(2)}</span>
-                  )}
-                  {filteredSpend > 0 && (
-                    <span className="filter-total out">−€{filteredSpend.toFixed(2)}</span>
-                  )}
+                <div className="filter-summary-actions">
+                  <div className="filter-totals">
+                    {filteredIncome > 0 && (
+                      <span className="filter-total in">+€{filteredIncome.toFixed(2)}</span>
+                    )}
+                    {filteredSpend > 0 && (
+                      <span className="filter-total out">−€{filteredSpend.toFixed(2)}</span>
+                    )}
+                  </div>
+                  <label className="export-toggle" title="On: export only the filtered results. Off: export every transaction.">
+                    <input type="checkbox" checked={exportFilteredOnly} onChange={(e) => setExportFilteredOnly(e.target.checked)} />
+                    <span>Filtered only</span>
+                  </label>
+                  <button className="export-btn" onClick={exportTxnsCsv} disabled={transactions.length === 0}>Export CSV</button>
                 </div>
               </div>
 
