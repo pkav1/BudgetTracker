@@ -251,7 +251,7 @@ input, select, textarea, button { font-family: inherit; }
 }
 .recurring-header:hover { background: var(--surface-2); }
 .recurring-header-icon { display: inline-flex; color: var(--accent); flex-shrink: 0; }
-.recurring-header-title { font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.recurring-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-3); flex-shrink: 0; }
 .recurring-header-summary { font-size: 13px; color: var(--text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recurring-alert-badge {
   flex-shrink: 0;
@@ -453,7 +453,7 @@ input, select, textarea, button { font-family: inherit; }
 }
 .snap-tiles {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 1.5rem;
 }
@@ -701,10 +701,18 @@ input, select, textarea, button { font-family: inherit; }
   margin-bottom: 1.25rem;
 }
 .metric-row-2 { grid-template-columns: repeat(2, 1fr); }
-/* Two-class selector so it stays 3-up even under the .metric-row mobile overrides */
+/* The period-metric row holds 3 items, so it stays 3-up from desktop down through the
+   tablet range (481–768px), then stacks to 1-up on phones (≤480). This is intentional:
+   the command tiles are 4 items → 2×2, the metrics are 3 items → 3 across — each is the
+   natural layout for its count. Forcing the 3 metrics into a 2×2 would leave an orphan
+   cell, which reads worse than the deliberate 4-vs-3 rhythm. The two-class selector keeps
+   it 3-up above the single-class `.metric-row` mobile override. */
 .metric-row.metric-row-3 { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 480px) {
+  /* On phones the 3 command tiles and the 3 period metrics both stack to 1-up
+     (no orphan cell, subs get full width to read). */
   .metric-row.metric-row-3 { grid-template-columns: 1fr; }
+  .snap-tiles { grid-template-columns: 1fr; }
 }
 .metric {
   background: var(--surface);
@@ -1732,7 +1740,7 @@ input, select, textarea, button { font-family: inherit; }
 
   .app  { padding-left: 0; }
   .main { max-width: 100%; margin: 0; padding: 1.25rem 1rem 5rem; }
-  .snap-tiles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .snap-tiles { gap: 10px; }   /* 3 tiles stay 3-up on tablet; base repeat(3,1fr) applies */
   .snap-tile { padding: 14px 14px 16px; min-height: 96px; }
   .snap-tile-primary { font-size: 22px; letter-spacing: -0.5px; }
   .networth-hero { padding: 1.25rem; }

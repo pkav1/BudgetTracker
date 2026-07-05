@@ -1029,7 +1029,7 @@ function DashboardSkeleton() {
       <div className="card">
         <div className="skel" style={{ height: 14, width: 170, marginBottom: 18 }} />
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "0.5px solid #f1efe8" }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "0.5px solid var(--border-light)" }}>
             <div className="skel" style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
               <div className="skel" style={{ height: 13, width: "60%", marginBottom: 5 }} />
@@ -2521,25 +2521,6 @@ export default function App() {
                   </>
                 ) : null}
               </button>
-
-              <button className="snap-tile" onClick={() => setTab("planner")}>
-                <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="planner" size={13} /></span>Planner</div>
-                {nextMilestone ? (
-                  <>
-                    {nextMilestone.needed > 0
-                      ? <div className="snap-tile-primary">€{nextMilestone.needed.toFixed(0)}</div>
-                      : <div className="snap-tile-primary" style={{ fontSize: 16, color: "var(--green)" }}>On track</div>}
-                    <div className="snap-tile-sub">
-                      {nextMilestone.name} · {new Date(nextMilestone.yearMonth + "-01T12:00:00").toLocaleDateString("en-IE", { month: "short", year: "numeric" })}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="snap-tile-primary" style={{ fontSize: 14, color: "var(--text-2)" }}>No upcoming goals</div>
-                    <div className="snap-tile-sub">Set a target date in Planner</div>
-                  </>
-                )}
-              </button>
             </div>
 
             {/* ── This period's numbers: 3-up in both views (no reflow on toggle) ── */}
@@ -2605,9 +2586,9 @@ export default function App() {
                       {weekTransferTxns.length > 0 && (
                         <>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 4px" }}>
-                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
-                            <span style={{ fontSize: 11, color: "#b4b2a9", whiteSpace: "nowrap" }}>Transfers & settlements</span>
-                            <div style={{ flex: 1, height: 1, background: "#e1e0d9" }} />
+                            <div style={{ flex: 1, height: 1, background: "var(--border-light)" }} />
+                            <span style={{ fontSize: 11, color: "var(--text-3)", whiteSpace: "nowrap" }}>Transfers & settlements</span>
+                            <div style={{ flex: 1, height: 1, background: "var(--border-light)" }} />
                           </div>
                           {weekTransferTxns.map((t) => (
                             <TxnRow key={t.id} t={t} muted {...txnRowProps} />
@@ -3293,7 +3274,7 @@ export default function App() {
               <div className="card">
                 <div className="skel" style={{ height: 14, width: 160, marginBottom: 20 }} />
                 {[0, 1, 2, 3, 4].map((i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "0.5px solid #f1efe8" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: "0.5px solid var(--border-light)" }}>
                     <div className="skel" style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0 }} />
                     <div className="skel" style={{ height: 13, width: 60 }} />
                     <div style={{ flex: 1 }} />
