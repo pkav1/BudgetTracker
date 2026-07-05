@@ -709,11 +709,11 @@ function LineChart({ labels, data, datasets, yPrefix = "€", darkMode }) {
     const gridColor = readToken(ref.current, "--border-light", "#e8ebee");
     // Accept either a single `data` array (legacy) or a `datasets` list of
     // { data, color, dashed, fill, width } for multi-line charts.
-    const src = (datasets && datasets.length) ? datasets : [{ data, color: "#2a78d6", fill: true }];
+    const src = (datasets && datasets.length) ? datasets : [{ data, colorToken: "--accent", color: "#0891b2", fill: true }];
     const chartDatasets = src.map((d) => {
       // Resolve a CSS token (e.g. "--boi") to its concrete theme value so canvas lines
       // track light/dark mode; fall back to the literal `color`.
-      const lineColor = d.colorToken ? readToken(ref.current, d.colorToken, d.color || "#2a78d6") : (d.color || "#2a78d6");
+      const lineColor = d.colorToken ? readToken(ref.current, d.colorToken, d.color || "#0891b2") : (d.color || "#0891b2");
       return {
       data: d.data,
       borderColor: lineColor,
@@ -1670,7 +1670,7 @@ export default function App() {
     ? [{ data: boiSeries, colorToken: "--boi", color: "#2a5fa5", fill: true, width: 2 }]
     : balanceView === "revolut"
     ? [{ data: revSeries, colorToken: "--rev", color: "#c2610a", fill: true, width: 2 }]
-    : [{ data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 }];
+    : [{ data: combinedSeries, colorToken: "--accent", color: "#0891b2", fill: true, width: 2.6 }];
 
   // Monthly view
   const monthTxns = transactions.filter((t) => t.date >= monthFrom && t.date <= monthTo);
@@ -1701,7 +1701,7 @@ export default function App() {
   const trendDatasets = [{
     label: "Spent",
     data: trendWeeks.map((w) => w.spent),
-    backgroundColor: trendWeeks.map((w) => w.isCurrent ? "#2a78d6cc" : "#2a78d633"),
+    backgroundColor: trendWeeks.map((w) => w.isCurrent ? "#0891b2cc" : "#0891b233"),
     borderRadius: 4,
     borderSkipped: false,
   }];

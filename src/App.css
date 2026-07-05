@@ -8,8 +8,8 @@
   --text-1:       #111827;
   --text-2:       #6b7280;
   --text-3:       #9ca3af;
-  --accent:       #2563eb;
-  --accent-bg:    #eff6ff;
+  --accent:       #0891b2;
+  --accent-bg:    #e2f6fb;
   --green:        #16a34a;
   --green-bg:     #f0fdf4;
   --red:          #dc2626;
@@ -36,8 +36,8 @@
   --text-1:       #e6edf3;
   --text-2:       #8b949e;
   --text-3:       #6e7681;
-  --accent:       #3b82f6;
-  --accent-bg:    #1d2d4a;
+  --accent:       #2bc0de;
+  --accent-bg:    #07333d;
   --green:        #3fb950;
   --green-bg:     #0a2218;
   --red:          #f85149;
@@ -76,12 +76,12 @@ input, select, textarea, button { font-family: inherit; }
 .app textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
 }
 .dark .app input:focus,
 .dark .app select:focus,
 .dark .app textarea:focus {
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+  box-shadow: 0 0 0 3px rgba(43, 192, 222, 0.22);
 }
 
 /* Interactive row hover states */
@@ -329,9 +329,9 @@ input, select, textarea, button { font-family: inherit; }
   align-items: center;
   justify-content: center;
   width: 28px; height: 28px;
-  background: linear-gradient(145deg, var(--accent), #7c5cff);
+  background: linear-gradient(145deg, var(--accent), #22d3ee);
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 6px rgba(8, 145, 178, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   flex-shrink: 0;
 }
 .sidebar-logo-text {
@@ -632,7 +632,7 @@ input, select, textarea, button { font-family: inherit; }
 .worth-check-btn {
   width: 100%; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 600;
   background: var(--accent); color: #fff; border: none; border-radius: 10px; cursor: pointer;
-  box-shadow: 0 2px 8px rgba(37,99,235,.22); transition: opacity 0.15s;
+  box-shadow: 0 2px 8px rgba(8,145,178,.22); transition: opacity 0.15s;
 }
 .worth-check-btn:hover:not(:disabled) { opacity: 0.92; }
 .worth-check-btn:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
@@ -1124,13 +1124,13 @@ input, select, textarea, button { font-family: inherit; }
   justify-content: center;
   padding: 1.25rem;
   background:
-    radial-gradient(ellipse 65% 55% at 15% 12%, rgba(37, 99, 235, 0.13) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55% at 15% 12%, rgba(8, 145, 178, 0.13) 0%, transparent 70%),
     radial-gradient(ellipse 55% 50% at 85% 88%, rgba(124, 92, 255, 0.10) 0%, transparent 70%),
     var(--bg);
 }
 .dark .auth-wrap {
   background:
-    radial-gradient(ellipse 65% 55% at 15% 12%, rgba(59, 130, 246, 0.16) 0%, transparent 70%),
+    radial-gradient(ellipse 65% 55% at 15% 12%, rgba(43, 192, 222, 0.16) 0%, transparent 70%),
     radial-gradient(ellipse 55% 50% at 85% 88%, rgba(124, 92, 255, 0.13) 0%, transparent 70%),
     var(--bg);
 }
@@ -1204,8 +1204,8 @@ input, select, textarea, button { font-family: inherit; }
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  background: linear-gradient(145deg, var(--accent), #7c5cff);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: linear-gradient(145deg, var(--accent), #22d3ee);
+  box-shadow: 0 6px 16px rgba(8, 145, 178, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.25);
   margin-bottom: 14px;
 }
 .auth-wordmark {
@@ -1258,9 +1258,9 @@ input, select, textarea, button { font-family: inherit; }
 .auth-input::placeholder { color: var(--text-3); }
 .auth-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(8, 145, 178, 0.15);
 }
-.dark .auth-input:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22); }
+.dark .auth-input:focus { box-shadow: 0 0 0 3px rgba(43, 192, 222, 0.22); }
 .auth-error {
   font-size: 13px;
   color: var(--red);
@@ -1287,7 +1287,7 @@ input, select, textarea, button { font-family: inherit; }
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 8px rgba(8, 145, 178, 0.25);
   transition: opacity 0.15s, box-shadow 0.15s;
 }
 .auth-btn-primary:not(:disabled):hover { opacity: 0.9; }
