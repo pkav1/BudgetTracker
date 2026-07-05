@@ -1610,9 +1610,19 @@ export default function App() {
     .filter(m => m.yearMonth && m.months !== null && m.months >= 0)
     .sort((a, b) => a.months - b.months)[0] ?? null;
 
-  const bycat = {};
-  budgets.filter((b) => b.name !== "Transfers").forEach((b) => (bycat[b.name] = 0));
-  weekSpendTxns.forEach((t) => { bycat[t.category] = (bycat[t.category] || 0) + Math.abs(t.amount); });
+  // Spending (abs amount, non-transfer) per category within [from, to]. Single source for
+  // every "spend per category for a period" figure — the date range is explicit and required
+  // at each call site, so nav-following vs current-period ranges can't be silently confused.
+  const spendByCategory = (from, to) => {
+    const out = {};
+    for (const t of transactions) {
+      if (t.amount < 0 && t.category !== "Transfers" && t.date >= from && t.date <= to) {
+        out[t.category] = (out[t.category] || 0) + Math.abs(t.amount);
+      }
+    }
+    return out;
+  };
+  const bycat = spendByCategory(start, end);   // viewed week (follows the Dashboard week nav)
 
   // Monthly view uses its own calendar-month cursor (monthOffset) so the current
   // in-progress month is reachable; Weekly view keeps deriving the focused month
@@ -1669,8 +1679,7 @@ export default function App() {
   const totalMonthSpent = monthSpendTxns.reduce((s, t) => s + Math.abs(t.amount), 0);
   const totalMonthIncome = monthIncomeTxns.reduce((s, t) => s + t.amount, 0);
   const netSaved = totalMonthIncome - totalMonthSpent;
-  const monthBycat = {};
-  monthSpendTxns.forEach((t) => { monthBycat[t.category] = (monthBycat[t.category] || 0) + Math.abs(t.amount); });
+  const monthBycat = spendByCategory(monthFrom, monthTo);   // viewed month (follows the month nav)
   const monthCatsSorted = CATEGORIES
     .map((c) => ({ ...c, spent: monthBycat[c.name] || 0 }))
     .filter((c) => c.spent > 0 && c.name !== "Transfers")
@@ -1697,10 +1706,22 @@ export default function App() {
     borderSkipped: false,
   }];
 
-  // Over budget categories — each compared against its own cadence's spend
+  // Current-week and current-month spend per category — always THIS week / THIS calendar
+  // month, independent of the Dashboard's week/month nav. The single source for budget-health
+  // checks (over-budget banner, Budget tiles). Distinct from the nav-following bycat/monthBycat,
+  // which reflect whichever week/month you've navigated to.
+  const budgetWeekSpent = spendByCategory(cwStart, cwEnd);   // always the CURRENT week
+  const budgetMonthStart = new Date(); budgetMonthStart.setDate(1); budgetMonthStart.setHours(0, 0, 0, 0);
+  const budgetMonthEnd = new Date(budgetMonthStart.getFullYear(), budgetMonthStart.getMonth() + 1, 0, 23, 59, 59, 999);
+  const budgetMonthSpent = spendByCategory(budgetMonthStart, budgetMonthEnd);   // always the CURRENT calendar month
+  // Per-category spend over the category's own cadence period (current week vs current month-to-date).
+  const budgetSpentFor = (b) => (b.cadence === "monthly" ? budgetMonthSpent[b.name] : budgetWeekSpent[b.name]) || 0;
+
+  // Over-budget categories: monthly-cadence vs the TRUE current month (budgetMonthSpent),
+  // weekly-cadence vs the viewed week (bycat) — the latter left as-is.
   const overBudgetCats = budgets.filter((b) => {
     if (b.name === "Transfers" || b.limit_amount <= 0) return false;
-    const spent = (b.cadence === "monthly" ? monthBycat[b.name] : bycat[b.name]) || 0;
+    const spent = (b.cadence === "monthly" ? budgetMonthSpent[b.name] : bycat[b.name]) || 0;
     return spent > b.limit_amount;
   });
 
@@ -2250,19 +2271,10 @@ export default function App() {
   const headerNet = headerIn - headerOut;
   const latestTxnDate = transactions.reduce((m, t) => (!m || t.date > m ? t.date : m), null);
   const fmt0 = (n) => n.toLocaleString("en-IE", { maximumFractionDigits: 0 });
-  // Current-week and current-month spend per category (always this week/month, independent of
-  // the Dashboard's week nav) — used to compare each budget against its own cadence.
-  const budgetWeekSpent = {};
-  cwSpendTxns.forEach((t) => { budgetWeekSpent[t.category] = (budgetWeekSpent[t.category] || 0) + Math.abs(t.amount); });
-  const budgetMonthStart = new Date(); budgetMonthStart.setDate(1); budgetMonthStart.setHours(0, 0, 0, 0);
-  const budgetMonthSpent = {};
-  transactions
-    .filter((t) => t.amount < 0 && t.category !== "Transfers" && t.date >= budgetMonthStart)
-    .forEach((t) => { budgetMonthSpent[t.category] = (budgetMonthSpent[t.category] || 0) + Math.abs(t.amount); });
+  // budgetWeekSpent / budgetMonthSpent / budgetSpentFor are defined earlier (above the
+  // over-budget banner). Monthly-budget usage % for the command-centre Budget tile:
   const budgetMonthTotalSpent = Object.values(budgetMonthSpent).reduce((s, v) => s + v, 0);
   const budgetMonthPct = budgetMonthlyTotal > 0 ? (budgetMonthTotalSpent / budgetMonthlyTotal) * 100 : null;
-  // Per-category spend over the category's own cadence period (week vs month-to-date)
-  const budgetSpentFor = (b) => (b.cadence === "monthly" ? budgetMonthSpent[b.name] : budgetWeekSpent[b.name]) || 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -2514,10 +2526,11 @@ export default function App() {
                 <div className="snap-tile-header"><span className="snap-tile-icon"><Icon name="planner" size={13} /></span>Planner</div>
                 {nextMilestone ? (
                   <>
-                    <div className="snap-tile-primary">{nextMilestone.name}</div>
+                    {nextMilestone.needed > 0
+                      ? <div className="snap-tile-primary">€{nextMilestone.needed.toFixed(0)}</div>
+                      : <div className="snap-tile-primary" style={{ fontSize: 16, color: "var(--green)" }}>On track</div>}
                     <div className="snap-tile-sub">
-                      {nextMilestone.needed > 0 ? `€${nextMilestone.needed.toFixed(0)} to go · ` : "on track · "}
-                      {nextMilestone.yearMonth}
+                      {nextMilestone.name} · {new Date(nextMilestone.yearMonth + "-01T12:00:00").toLocaleDateString("en-IE", { month: "short", year: "numeric" })}
                     </div>
                   </>
                 ) : (
@@ -2560,7 +2573,8 @@ export default function App() {
                   <div className="card-title">Spending by category</div>
                   {budgets.filter((b) => b.name !== "Transfers").map((b) => {
                     const isMonthly = b.cadence === "monthly";
-                    const spent = (isMonthly ? monthBycat[b.name] : bycat[b.name]) || 0;
+                    // Monthly-cadence → true current calendar month; weekly-cadence → viewed week.
+                    const spent = (isMonthly ? budgetMonthSpent[b.name] : bycat[b.name]) || 0;
                     if (!b.limit_amount && !spent) return null;
                     const pct = b.limit_amount > 0 ? Math.min(100, (spent / b.limit_amount) * 100) : 0;
                     const color = b.limit_amount > 0 ? (spent > b.limit_amount ? "#e24b4a" : spent > b.limit_amount * 0.8 ? "#ba7517" : b.color) : b.color;
