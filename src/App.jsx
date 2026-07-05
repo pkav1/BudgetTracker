@@ -2137,18 +2137,14 @@ export default function App() {
 
   // ── Net worth derived ──────────────────────────────────────────────────────
 
-  // Most recent bank balance we hold. BOI PDFs / single-account Revolut CSVs carry a
-  // running balance; consolidated Revolut CSV rows import with balance = null. null = none yet.
-  const latestBalance = (() => {
-    let bal = null, when = -Infinity;
-    for (const t of transactions) {
-      if (t.balance != null && t.date instanceof Date && t.date.getTime() > when) {
-        when = t.date.getTime();
-        bal = t.balance;
-      }
-    }
-    return bal;
-  })();
+  // Account balance = each bank's most recent real running balance, summed (BOI +
+  // Revolut current account) — the same combined logic as the Cash balance chart.
+  // Both BOI PDFs and consolidated Revolut CSVs now carry a running balance, so summing
+  // a single account's most-recent row alone would drop the other. null only when
+  // NEITHER account has a balance yet.
+  const latestBalance = (boiLatest != null || revLatest != null)
+    ? (boiLatest ?? 0) + (revLatest ?? 0)
+    : null;
   const netWorthTotal = (latestBalance ?? 0) + totalSavings + pfTotalValue + (Number(planner.cash_balance) || 0);
 
   const nwSorted = [...netWorthSnapshots].sort((a, b) =>
