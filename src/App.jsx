@@ -50,8 +50,8 @@ const CATEGORIES = [
 ];
 
 const ACCOUNTS = [
-  { id: "revolut", name: "Revolut", color: "#191c33" },
-  { id: "boi", name: "Bank of Ireland", color: "#2a5fa5" },
+  { id: "revolut", name: "Revolut", color: "var(--rev)" },
+  { id: "boi", name: "Bank of Ireland", color: "var(--boi)" },
 ];
 
 const CHART_COLORS = [
@@ -710,10 +710,14 @@ function LineChart({ labels, data, datasets, yPrefix = "€", darkMode }) {
     // Accept either a single `data` array (legacy) or a `datasets` list of
     // { data, color, dashed, fill, width } for multi-line charts.
     const src = (datasets && datasets.length) ? datasets : [{ data, color: "#2a78d6", fill: true }];
-    const chartDatasets = src.map((d) => ({
+    const chartDatasets = src.map((d) => {
+      // Resolve a CSS token (e.g. "--boi") to its concrete theme value so canvas lines
+      // track light/dark mode; fall back to the literal `color`.
+      const lineColor = d.colorToken ? readToken(ref.current, d.colorToken, d.color || "#2a78d6") : (d.color || "#2a78d6");
+      return {
       data: d.data,
-      borderColor: d.color || "#2a78d6",
-      backgroundColor: d.fill ? (d.color || "#2a78d6") + "1c" : "transparent",
+      borderColor: lineColor,
+      backgroundColor: d.fill ? lineColor + "1c" : "transparent",
       borderWidth: d.width ?? 2,
       borderDash: d.dashed ? [5, 4] : [],
       pointRadius: 2,
@@ -721,7 +725,8 @@ function LineChart({ labels, data, datasets, yPrefix = "€", darkMode }) {
       fill: !!d.fill,
       tension: 0.35,
       spanGaps: true,
-    }));
+      };
+    });
     if (chartRef.current) chartRef.current.destroy();
     chartRef.current = new Chart(ref.current, {
       type: "line",
@@ -951,7 +956,7 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
           <div className="txn-date">
             {t.date.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
             {t.account && (
-              <span className="txn-account" style={{ color: t.account === "BOI" ? "#2a5fa5" : "#c2610a", background: (t.account === "BOI" ? "#2a5fa5" : "#c2610a") + "22" }}>{t.account}</span>
+              <span className={`txn-account ${t.account === "BOI" ? "boi" : "rev"}`}>{t.account}</span>
             )}
           </div>
         </div>
@@ -1652,9 +1657,9 @@ export default function App() {
 
   // Datasets per the Combined / BOI / Revolut toggle — real, solid lines.
   const balanceDatasets = balanceView === "boi"
-    ? [{ data: boiSeries, color: "#2a5fa5", fill: true, width: 2 }]
+    ? [{ data: boiSeries, colorToken: "--boi", color: "#2a5fa5", fill: true, width: 2 }]
     : balanceView === "revolut"
-    ? [{ data: revSeries, color: "#e0820e", fill: true, width: 2 }]
+    ? [{ data: revSeries, colorToken: "--rev", color: "#c2610a", fill: true, width: 2 }]
     : [{ data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 }];
 
   // Monthly view
