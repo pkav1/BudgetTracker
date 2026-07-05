@@ -948,7 +948,12 @@ function TxnRow({ t, muted, pendingRule, onRecategorise, onSaveRule, onDismissRu
         <div className="txn-icon" style={{ background: cat.color + "22", color: cat.color }}>{cat.icon}</div>
         <div className="txn-meta">
           <div className="txn-desc">{t.description}</div>
-          <div className="txn-date">{t.date.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}</div>
+          <div className="txn-date">
+            {t.date.toLocaleDateString("en-IE", { weekday: "short", day: "numeric", month: "short" })}
+            {t.account && (
+              <span className="txn-account" style={{ color: t.account === "BOI" ? "#2a5fa5" : "#c2610a", background: (t.account === "BOI" ? "#2a5fa5" : "#c2610a") + "22" }}>{t.account}</span>
+            )}
+          </div>
         </div>
         <select className="cat-select" value={t.category} onChange={(e) => onRecategorise(t.id, e.target.value)}>
           {CATEGORIES.map((c) => <option key={c.name}>{c.name}</option>)}
@@ -1548,17 +1553,6 @@ export default function App() {
   });
   const filteredSpend  = filteredTxns.filter(t => t.amount < 0 && t.category !== "Transfers").reduce((s, t) => s + Math.abs(t.amount), 0);
   const filteredIncome = filteredTxns.filter(t => t.amount > 0 && t.category !== "Transfers").reduce((s, t) => s + t.amount, 0);
-  // TEMP DEBUG — where the spending total comes from (remove after)
-  const __spendRows = filteredTxns.filter(t => t.amount < 0 && t.category !== "Transfers");
-  const __spendByCat = {};
-  for (const t of __spendRows) __spendByCat[t.category] = (__spendByCat[t.category] || 0) + Math.abs(t.amount);
-  const __spendDates = __spendRows.map(t => t.date).filter(d => d instanceof Date && !isNaN(d));
-  const __spendDbg = {
-    count: __spendRows.length,
-    span: __spendDates.length ? `${new Date(Math.min(...__spendDates.map(d=>d.getTime()))).toISOString().slice(0,10)} → ${new Date(Math.max(...__spendDates.map(d=>d.getTime()))).toISOString().slice(0,10)}` : "-",
-    byCat: Object.entries(__spendByCat).sort((a,b)=>b[1]-a[1]).map(([k,v]) => `${k}: €${v.toFixed(0)}`),
-    biggest: [...__spendRows].sort((a,b)=>Math.abs(b.amount)-Math.abs(a.amount)).slice(0,6).map(t => `€${Math.abs(t.amount).toFixed(0)} ${t.date.toISOString().slice(0,10)} ${t.category} — ${t.description.slice(0,28)}`),
-  };
   const hasActiveTxnFilters = txnSearch || txnAccounts.length > 0 || txnCategories.length > 0 || txnDateFrom || txnDateTo;
   // Active filters excluding search (search stays visible in the condensed bar)
   const activeFilterCount = txnAccounts.length + txnCategories.length + (txnDateFrom ? 1 : 0) + (txnDateTo ? 1 : 0);
@@ -1660,7 +1654,7 @@ export default function App() {
   const balanceDatasets = balanceView === "boi"
     ? [{ data: boiSeries, color: "#2a5fa5", fill: true, width: 2 }]
     : balanceView === "revolut"
-    ? [{ data: revSeries, color: "#7c5cff", fill: true, width: 2 }]
+    ? [{ data: revSeries, color: "#e0820e", fill: true, width: 2 }]
     : [{ data: combinedSeries, color: "#2a78d6", fill: true, width: 2.6 }];
 
   // Monthly view
@@ -2861,15 +2855,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TEMP DEBUG — spending total breakdown (remove after) */}
-              <div style={{ background: "#fff3cd", color: "#5c4a00", border: "1px solid #e0c060", borderRadius: 8, padding: "10px 12px", margin: "0 0 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                {`SPEND DEBUG — −€${filteredSpend.toFixed(0)} across ${__spendDbg.count} rows, ${__spendDbg.span}
-by category:
-${__spendDbg.byCat.join("\n")}
-biggest single rows:
-${__spendDbg.biggest.join("\n")}`}
-              </div>
-
               {filteredTxns.length === 0 ? (
                 <EmptyState
                   icon="search"
@@ -2880,7 +2865,7 @@ ${__spendDbg.biggest.join("\n")}`}
                 txnGroups.map((g) => (
                   <div className="txn-day-group" key={g.key}>
                     <div className="txn-day-header">
-                      {g.date.toLocaleDateString("en-IE", { weekday: "long" })}, {g.date.toLocaleDateString("en-IE", { day: "numeric", month: "long" })}
+                      {g.date.toLocaleDateString("en-IE", { weekday: "long" })}, {g.date.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" })}
                     </div>
                     {g.txns.map((t) => <TxnRow key={t.id} t={t} {...txnRowProps} />)}
                   </div>
