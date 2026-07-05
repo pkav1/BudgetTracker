@@ -861,6 +861,26 @@ function VaultRing({ pct, size = 44 }) {
   );
 }
 
+// Savings "goal card" hero themes. Emergency Fund + Holidays are fixed; every other
+// vault (Revolut pockets) gets a stable colour from the palette, hashed by name.
+const VAULT_SHIELD = (<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 2.5v5.5c0 4.4-3 7.4-7 8.9-4-1.5-7-4.5-7-8.9V5.5L12 3z" /><path d="M9 12l2 2 4-4.5" /></svg>);
+const VAULT_COINS = (<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="7" rx="7" ry="3" /><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7" /><path d="M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" /></svg>);
+const VAULT_PALETTE = [
+  { from: "#ff9d5c", to: "#f2743b", solid: "#d5622a" },
+  { from: "#34b877", to: "#1f9257", solid: "#1f9257" },
+  { from: "#8172e0", to: "#5b49bd", solid: "#5b49bd" },
+  { from: "#f06a9a", to: "#d6417a", solid: "#cf3a72" },
+  { from: "#f2b13a", to: "#d98a10", solid: "#b47708" },
+  { from: "#4f9df2", to: "#2f6fd0", solid: "#2f6fd0" },
+];
+function vaultTheme(v) {
+  if (v.name === "Emergency Fund") return { from: "#0aa7c7", to: "#0b7f9c", solid: "var(--accent)", icon: VAULT_SHIELD };
+  if (v.name === "Holidays") return { from: "#ff9d75", to: "#8a6fd4", solid: "#a15bd0", icon: null };
+  let h = 0;
+  for (let i = 0; i < v.name.length; i++) h = (h * 31 + v.name.charCodeAt(i)) >>> 0;
+  return { ...VAULT_PALETTE[h % VAULT_PALETTE.length], icon: VAULT_COINS };
+}
+
 function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -3072,16 +3092,19 @@ export default function App() {
             >
               <CountUp value={totalSavings} prefix="€" />
             </TabHeader>
-            <div className="card">
-              <div className="card-title">Vaults &amp; savings</div>
-              {savings.length === 0 && (
+            {savings.length === 0 && (
+              <div className="card">
                 <EmptyState icon="savings" headline="Nothing here yet" sub="Import a Revolut CSV to populate your vaults" />
-              )}
+              </div>
+            )}
+            <div className="vault-cards">
               {savings.map((v) => {
                 const isHolidays = v.name === "Holidays";
                 const pct = v.target > 0 ? Math.min(100, (v.balance / v.target) * 100) : null;
                 const autoMeta = revVaultMeta[v.id];
                 const days = isHolidays ? daysUntil(v.departure_date) : null;
+                const hasPhoto = isHolidays && !!v.photo_url;
+                const theme = vaultTheme(v);
                 const openEdit = () => {
                   setHolidaysEditDraft({ destinationName: v.destination_name || "", targetDate: v.departure_date || "", photoFile: undefined, clearPhoto: false });
                   setHolidaysUploadError(null);
@@ -3134,38 +3157,36 @@ export default function App() {
                 };
                 return (
                   <Fragment key={v.id}>
-                    {/* Unified vault row: media tile · info · progress ring */}
-                    <div className="savings-row">
-                      {/* Zone A — media tile (shared 76px slot) */}
-                      <div className="vault-media">
-                        {isHolidays ? (
-                          v.photo_url ? (
-                            <img src={v.photo_url} alt={v.destination_name || "Destination"} className="vault-media-photo" />
-                          ) : (
-                            <button className="vault-media-placeholder" onClick={openEdit} title="Add destination photo">＋</button>
-                          )
-                        ) : (
-                          <div className="vault-media-glyph">🛡️</div>
-                        )}
-                      </div>
-
-                      {/* Zone B — info block (identical structure for every vault) */}
-                      <div className="savings-info">
-                        <div className="savings-name-row">
-                          <span className="savings-name">{v.name}</span>
-                          {autoMeta && <span className="vault-sync-badge">↻ Revolut</span>}
-                          {isHolidays && !editingHolidays && (
-                            <button className="holidays-edit-link" onClick={openEdit}>✎ Edit</button>
-                          )}
+                    {/* Goal card: colour/photo hero + footer figures */}
+                    <div className="vault-card">
+                      <div
+                        className={`vault-hero${hasPhoto ? " has-photo" : ""}`}
+                        style={hasPhoto
+                          ? { backgroundImage: `url(${v.photo_url})` }
+                          : { background: `linear-gradient(150deg, ${theme.from}, ${theme.to})` }}
+                      >
+                        <div className="vault-hero-top">
+                          <span className="vault-hero-name">{v.name}</span>
+                          <span className="vault-hero-chips">
+                            {autoMeta && <span className="vault-chip">↻ Revolut</span>}
+                            {isHolidays && !editingHolidays && (
+                              <button className="vault-chip edit" onClick={openEdit}>✎ Edit</button>
+                            )}
+                          </span>
                         </div>
                         {isHolidays && days !== null && (
-                          <div className="vault-dest-line">
-                            {v.destination_name ? `${days} days until ${v.destination_name}` : `${days} days to go`}
-                          </div>
+                          <span className="vault-hero-days">✈ {v.destination_name ? `${days} days to ${v.destination_name}` : `${days} days to go`}</span>
                         )}
-                        <div className="savings-balance-line" style={{ marginTop: 6 }}>
-                          <span className="savings-balance-amount">€{v.balance % 1 === 0 ? v.balance : v.balance.toFixed(2)}</span>
-                          {" of "}<span className="savings-target-currency">€</span>
+                        {isHolidays && !v.photo_url && !editingHolidays && (
+                          <button className="vault-hero-addphoto" onClick={openEdit}>＋ Add photo</button>
+                        )}
+                        {!isHolidays && <span className="vault-hero-glyph">{theme.icon}</span>}
+                        <div className="vault-prog"><i style={{ width: `${pct ?? 0}%` }} /></div>
+                      </div>
+                      <div className="vault-foot">
+                        <span className="vault-bal">€{v.balance % 1 === 0 ? v.balance : v.balance.toFixed(2)}</span>
+                        <span className="vault-foot-tgt">
+                          of <span className="savings-target-currency">€</span>
                           <input
                             type="number" min="0" step="50" value={v.target || ""}
                             placeholder="—"
@@ -3181,15 +3202,12 @@ export default function App() {
                               );
                             }}
                           />
-                          {" target"}
-                        </div>
-                        {autoMeta && (
-                          <div className="vault-last-imported">Last imported: {autoMeta.lastImported}</div>
-                        )}
+                        </span>
+                        <span className="vault-pct" style={{ color: pct === null ? "var(--text-3)" : theme.solid }}>
+                          {pct === null ? "—" : `${Math.round(pct)}%`}
+                        </span>
+                        {autoMeta && <span className="vault-imp">Last imported: {autoMeta.lastImported}</span>}
                       </div>
-
-                      {/* Zone C — progress ring */}
-                      <VaultRing pct={pct} size={80} />
                     </div>
 
                     {/* Holidays edit form */}

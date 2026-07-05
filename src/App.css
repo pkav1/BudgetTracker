@@ -955,6 +955,42 @@ input, select, textarea, button { font-family: inherit; }
   border-radius: 3px 3px 0 0;
 }
 
+/* ── Savings "goal cards" ─────────────────────────────────────────────────────── */
+.vault-cards { display: flex; flex-direction: column; gap: 14px; }
+.vault-card { border-radius: 18px; overflow: hidden; box-shadow: var(--shadow); background: var(--surface); border: 1px solid var(--border-light); }
+.vault-hero {
+  height: 120px; position: relative; padding: 15px 17px; color: #fff;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.vault-hero.has-photo { background-size: cover; background-position: center; }
+/* Scrim so white text stays legible on any uploaded photo */
+.vault-hero.has-photo::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.30), rgba(0,0,0,.04) 42%, rgba(0,0,0,.38)); }
+.vault-hero > * { position: relative; z-index: 1; }
+.vault-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.vault-hero-name { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; text-shadow: 0 1px 3px rgba(0,0,0,.25); }
+.vault-hero-chips { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.vault-chip {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap;
+  background: rgba(255,255,255,.24); color: #fff; padding: 3px 9px; border-radius: 99px; border: none;
+}
+.vault-chip.edit { background: rgba(255,255,255,.16); cursor: pointer; font-family: inherit; }
+.vault-hero-days { font-size: 12.5px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.vault-hero-addphoto {
+  align-self: flex-start; font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+  background: rgba(255,255,255,.16); color: #fff; border: 1px dashed rgba(255,255,255,.6); border-radius: 8px; padding: 4px 10px;
+}
+.vault-hero-glyph { position: absolute; right: 13px; bottom: 12px; opacity: 0.85; line-height: 0; }
+.vault-prog { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.28); }
+.vault-prog > i { display: block; height: 100%; background: #fff; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+.vault-foot { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; padding: 13px 17px; }
+.vault-bal { font-size: 21px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.vault-foot-tgt { font-size: 12.5px; color: var(--text-3); display: inline-flex; align-items: baseline; gap: 2px; }
+/* Target field sits inline in the footer, sized down from its standalone 22px */
+.vault-foot-tgt .savings-target-inline,
+.vault-foot-tgt .savings-target-currency { font-size: 12.5px; font-weight: 600; color: var(--text-2); letter-spacing: 0; }
+.vault-pct { margin-left: auto; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.vault-imp { width: 100%; order: 5; font-size: 10px; color: var(--text-3); margin-top: 2px; }
+
 /* Savings summary card */
 .savings-summary-card { display: flex; flex-direction: column; gap: 5px; }
 .savings-summary-total {
