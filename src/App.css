@@ -1306,6 +1306,20 @@ input, select, textarea, button { font-family: inherit; }
   box-shadow: 0 0 0 3px rgba(156, 118, 54, 0.15);
 }
 .dark .auth-input:focus { box-shadow: 0 0 0 3px rgba(198, 156, 93, 0.22); }
+/* Neutralise browser autofill (Chrome paints its own white bg + black text):
+   mask the fill with an inset shadow and force the ink colour to cream. */
+.auth-input:-webkit-autofill,
+.auth-input:-webkit-autofill:hover,
+.auth-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-1);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-2) inset;
+  caret-color: var(--text-1);
+  transition: background-color 9999s ease-in-out 0s;
+}
+/* Keep the focus ring visible when an autofilled field is focused. */
+.auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 3px rgba(156, 118, 54, 0.15), 0 0 0 1000px var(--surface-2) inset;
+}
 .auth-error {
   font-size: 13px;
   color: var(--red);
