@@ -1167,7 +1167,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dashboard");
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("darkMode") === "true");
+  const darkMode = true; // single theme — banker's-green ledger (light mode removed)
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);   // Monthly-view cursor, decoupled from weekOffset
   const [balanceView, setBalanceView] = useState("combined"); // Account-balance chart: combined | boi | revolut
@@ -1285,17 +1285,9 @@ export default function App() {
     setPinSetupMode(null);
   }
 
-  function toggleDark() {
-    setDarkMode((d) => {
-      const next = !d;
-      localStorage.setItem("darkMode", next);
-      return next;
-    });
-  }
-
   useEffect(() => {
-    document.body.style.background = darkMode ? "#0d1117" : "";
-  }, [darkMode]);
+    document.body.style.background = "#0c1a13";
+  }, []);
 
   useEffect(() => {
     const names = { dashboard: "Dashboard", transactions: "Transactions", budget: "Budget", statements: "Statements", savings: "Savings", investments: "Investments", planner: "Planner", settings: "Settings" };
@@ -2332,7 +2324,7 @@ export default function App() {
   const txnRowProps = { pendingRule, onRecategorise: recategorise, onSaveRule: saveRule, onDismissRule: () => setPendingRule(null) };
 
   return (
-    <div className={`app${darkMode ? " dark" : ""}`}>
+    <div className="app dark">
       <aside className="sidebar">
         <div className="sidebar-logo">
           <span className="sidebar-logo-mark" aria-hidden="true">
@@ -2365,10 +2357,6 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="sidebar-action" onClick={toggleDark}>
-            <span className="sidebar-icon">{darkMode ? "☀️" : "🌙"}</span>
-            <span className="sidebar-label">{darkMode ? "Light" : "Dark"} mode</span>
-          </button>
           <div className="sidebar-user">
             <span className="sidebar-user-avatar">{session.user.email[0].toUpperCase()}</span>
             <span className="sidebar-user-email">{session.user.email}</span>
@@ -3694,18 +3682,6 @@ export default function App() {
               )}
             </div>
 
-            <div className="card">
-              <div className="card-title">Appearance</div>
-              <div className="settings-row">
-                <div>
-                  <div className="settings-label">Dark mode</div>
-                  <div className="settings-hint">Switch between light and dark theme</div>
-                </div>
-                <button className="toggle-btn" onClick={toggleDark} aria-pressed={darkMode}>
-                  {darkMode ? "☀️ Light" : "🌙 Dark"}
-                </button>
-              </div>
-            </div>
 
             <div className="card danger-zone">
               <div className="card-title">Danger zone</div>
