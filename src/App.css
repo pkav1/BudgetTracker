@@ -1,28 +1,28 @@
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
-  /* Quiet Luxury — warm ivory ground, brass accent, hairline rules */
-  --bg:           #f4f1e9;
-  --surface:      #fbfaf6;
-  --surface-2:    #ece8dd;
-  --border:       #ddd6c7;
-  --border-light: #e8e3d6;
-  --text-1:       #23211b;
-  --text-2:       #6b6656;
-  --text-3:       #9b9583;
-  --accent:       #9c7636;
-  --accent-bg:    #f0e8d6;
-  --green:        #16a34a;
-  --green-bg:     #f0fdf4;
-  --red:          #dc2626;
-  --red-bg:       #fef2f2;
-  --amber:        #b45309;
-  --amber-bg:     #fffbeb;
-  --boi:          #2a5fa5;
-  --boi-bg:       #e9f0f8;
-  --rev:          #c2610a;
-  --rev-bg:       #fbeee1;
-  --shadow:       0 1px 2px rgba(40,36,28,.04);
-  --shadow-md:    0 2px 8px rgba(40,36,28,.06);
+  /* Old-school ledger — banker's-green ground, gold accent, cream ink */
+  --bg:           #14261d;
+  --surface:      #1a3327;
+  --surface-2:    #234032;
+  --border:       #3a5044;
+  --border-light: #26382c;
+  --text-1:       #ece4cf;
+  --text-2:       #aeb49c;
+  --text-3:       #7f8a75;
+  --accent:       #cba24c;
+  --accent-bg:    #2f2c17;
+  --green:        #4fb96a;
+  --green-bg:     #12321f;
+  --red:          #f0736a;
+  --red-bg:       #331617;
+  --amber:        #e2a13a;
+  --amber-bg:     #2a1f08;
+  --boi:          #7fb0e0;
+  --boi-bg:       #16293a;
+  --rev:          #e0a24a;
+  --rev-bg:       #2b1f0c;
+  --shadow:       0 1px 2px rgba(0,0,0,.25);
+  --shadow-md:    0 2px 10px rgba(0,0,0,.35);
   /* Serif for figure moments (money numbers) — swappable to a self-hosted display serif */
   --serif: Georgia, "Times New Roman", "Times", serif;
   --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -32,29 +32,29 @@
 }
 
 .dark {
-  /* Quiet Luxury — deep-forest ground, brass accent, hairline rules */
-  --bg:           #0e1512;
-  --surface:      #14201b;
-  --surface-2:    #1c2a23;
-  --border:       #26362d;
-  --border-light: #1c2a23;
-  --text-1:       #e8e4d8;
-  --text-2:       #a1a495;
-  --text-3:       #6f7566;
-  --accent:       #c69c5d;
-  --accent-bg:    #2a2414;
-  --green:        #3fb950;
-  --green-bg:     #0a2218;
-  --red:          #f85149;
+  /* Old-school ledger — deep night-green ground, gold accent, cream ink */
+  --bg:           #0c1a13;
+  --surface:      #112417;
+  --surface-2:    #19301f;
+  --border:       #2b4133;
+  --border-light: #19301f;
+  --text-1:       #ece4cf;
+  --text-2:       #a6ad95;
+  --text-3:       #74806a;
+  --accent:       #d0aa5e;
+  --accent-bg:    #2a2713;
+  --green:        #4fb96a;
+  --green-bg:     #0a2216;
+  --red:          #f0736a;
   --red-bg:       #2d1315;
-  --amber:        #f0883e;
+  --amber:        #e2a13a;
   --amber-bg:     #271900;
-  --boi:          #6ea8dc;
-  --boi-bg:       #182b3f;
-  --rev:          #e8842a;
-  --rev-bg:       #2c1d0b;
-  --shadow:       0 1px 2px rgba(0,0,0,.4);
-  --shadow-md:    0 2px 10px rgba(0,0,0,.5);
+  --boi:          #7fb0e0;
+  --boi-bg:       #152738;
+  --rev:          #e0a24a;
+  --rev-bg:       #2a1d0a;
+  --shadow:       0 1px 2px rgba(0,0,0,.45);
+  --shadow-md:    0 2px 10px rgba(0,0,0,.55);
 }
 
 /* ── Reset ──────────────────────────────────────────────────────────────────── */
@@ -815,8 +815,9 @@ input, select, textarea, button { font-family: inherit; }
   background: var(--surface-2); flex-shrink: 0;
 }
 .txn-amount { font-size: 13px; font-weight: 500; white-space: nowrap; }
-.txn-amount.out { color: var(--text-1); }
-.txn-amount.in { color: var(--green); }
+/* Ledger convention: debits (money out) in red, credits (money in) in ink. */
+.txn-amount.out { color: var(--red); }
+.txn-amount.in { color: var(--text-1); }
 
 /* ── Import ─────────────────────────────────────────────────────────────────── */
 .account-chip {
@@ -1697,8 +1698,8 @@ input, select, textarea, button { font-family: inherit; }
 .filter-count { font-size: 13px; color: var(--text-2); }
 .filter-totals { display: flex; gap: 10px; align-items: center; }
 .filter-total { font-size: 13px; font-weight: 500; }
-.filter-total.in  { color: var(--green); }
-.filter-total.out { color: var(--text-1); }
+.filter-total.in  { color: var(--text-1); }
+.filter-total.out { color: var(--red); }
 .filter-summary-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
 .export-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); cursor: pointer; user-select: none; white-space: nowrap; }
 .export-toggle input { accent-color: var(--accent); cursor: pointer; margin: 0; }
@@ -1850,3 +1851,16 @@ input, select, textarea, button { font-family: inherit; }
 }
 /* Text (non-figure) headlines — dates, the account email — stay sans. */
 .tab-header-text { font-family: var(--sans); }
+
+/* ── Ledger finish — gold heading/label tier + gold "ruled" lines ─────────────
+   Banker's-green + gold: the whole uppercase micro-label tier turns gold, and
+   the section dividers / day-group / tab-header become gold rules. Kept off the
+   coloured badge/pill labels (freq, kind, holidays-edit) so those stay tags. */
+.tab-header-eyebrow, .txn-day-header, .recurring-header-title, .recurring-subhead,
+.sidebar-group-label, .dash-section-label, .snap-tile-header, .networth-label,
+.networth-comp-label, .card-title, .auth-label, .filter-label, .inv-header {
+  color: var(--accent);
+}
+.networth-divider, .planner-summary-divider { background: var(--accent); }
+.txn-day-header { border-bottom-color: var(--accent); }
+.tab-header { border-bottom: 1px solid var(--accent); padding-bottom: 13px; }
