@@ -883,6 +883,12 @@ function vaultTheme(v) {
   return { ...VAULT_PALETTE[h % VAULT_PALETTE.length], icon: VAULT_COINS };
 }
 
+// Canonical key for matching a savings goal ("vault") by name. Import derives the
+// goal name from a bank statement string, so matching must be tolerant of case and
+// surrounding whitespace — otherwise a Revolut pocket rename or a manually-typed
+// goal with different casing silently forks into a second, duplicate goal.
+const normVaultName = (s) => (s || "").trim().toLowerCase();
+
 function AuthScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1817,6 +1823,16 @@ export default function App() {
       const newDeposits = vaultDeposits.filter(d => !alreadyDbIds.has(d.txnId));
       const importDate = new Date().toISOString().slice(0, 10);
 
+      // Match against a FRESH read of the goals in the DB — NOT the in-memory
+      // `savings` state, which may not yet reflect a goal created by a prior import
+      // in this session. Reading state here is what let a second import fail to see
+      // the first import's new goal and insert a duplicate. Matching is by normalized
+      // name so a pocket rename / casing change can't fork a goal either. Shared by
+      // both the deposit loop and the sync-metadata refresh below.
+      const { data: dbSavingsFresh } = await supabase
+        .from("savings").select("*").eq("user_id", uid);
+      let localSavings = dbSavingsFresh ?? savings;
+
       if (newDeposits.length > 0) {
         // Insert vault transactions that aren't in the DB yet.
         // These may be outside the user's chosen date range, but we always want them recorded.
@@ -1835,32 +1851,35 @@ export default function App() {
         const byVault = {};
         for (const d of newDeposits) byVault[d.vaultName] = (byVault[d.vaultName] || 0) + d.amount;
         const vaultNotes = [];
-        let localSavings = savings;
 
         for (const [vaultName, total] of Object.entries(byVault)) {
           const depositTotal = parseFloat(total.toFixed(2));
           if (depositTotal <= 0) continue;
 
-          let vault = localSavings.find(v => v.name === vaultName);
+          const key = normVaultName(vaultName);
+          let vault = localSavings.find(v => normVaultName(v.name) === key);
           if (!vault) {
             const { data: newVault } = await supabase
               .from("savings")
-              .insert({ name: vaultName, balance: 0, target: 0, user_id: uid })
+              .insert({ name: vaultName.trim(), balance: 0, target: 0, user_id: uid })
               .select().single();
             if (newVault) {
               vault = newVault;
-              setSavings(prev => [...prev, newVault]);
               localSavings = [...localSavings, newVault];
             }
           }
           if (vault) {
             const newBal = parseFloat((vault.balance + depositTotal).toFixed(2));
             await supabase.from("savings").update({ balance: newBal }).eq("id", vault.id).eq("user_id", uid);
-            setSavings(prev => prev.map(v => v.id === vault.id ? { ...v, balance: newBal } : v));
             localSavings = localSavings.map(v => v.id === vault.id ? { ...v, balance: newBal } : v);
             vaultNotes.push(`+€${depositTotal.toFixed(2)} → ${vaultName}`);
           }
         }
+
+        // Reconcile UI state with the fresh DB set + the balance deltas just applied.
+        // (A single update, since `localSavings` came from a fresh DB read and may
+        // contain goals the in-memory `savings` state didn't have.)
+        setSavings(localSavings);
 
         if (vaultNotes.length > 0) {
           vaultNote = ` · ${vaultNotes.join(", ")}`;
@@ -1875,7 +1894,8 @@ export default function App() {
       const allVaultNames = [...new Set(vaultDeposits.map(d => d.vaultName))];
       let metaChanged = false;
       for (const vaultName of allVaultNames) {
-        const vault = savings.find(v => v.name === vaultName);
+        const key = normVaultName(vaultName);
+        const vault = localSavings.find(v => normVaultName(v.name) === key);
         if (vault) {
           updatedMeta[vault.id] = { source: "revolut", lastImported: importDate };
           metaChanged = true;
@@ -2022,9 +2042,15 @@ export default function App() {
     const uid = session.user.id;
     const name = prompt("Vault name:");
     if (!name) return;
+    // Prevent a manual add from forking an existing goal (case/whitespace-insensitive).
+    const existing = savings.find(v => normVaultName(v.name) === normVaultName(name));
+    if (existing) {
+      alert(`A savings goal named "${existing.name}" already exists.`);
+      return;
+    }
     const target = parseFloat(prompt("Target amount (€):")) || 1000;
     const { data } = await supabase
-      .from("savings").insert({ name, balance: 0, target, user_id: uid }).select().single();
+      .from("savings").insert({ name: name.trim(), balance: 0, target, user_id: uid }).select().single();
     if (data) setSavings((prev) => [...prev, data]);
   }
 
