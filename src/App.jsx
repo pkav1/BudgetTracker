@@ -133,6 +133,23 @@ function catForDesc(desc) {
   return "Other";
 }
 
+// ── Trading 212 helpers ───────────────────────────────────────────────────────
+
+// Every euro in the account that isn't in a position: settled cash, cash parked inside
+// pies, and cash reserved against pending orders (still yours, just earmarked). Handles
+// both API shapes — the legacy `equity/account/cash` one and the newer
+// `equity/account/summary` one — and returns null if it recognises neither.
+function readCashBalance(data) {
+  if (!data || typeof data !== "object") return null;
+  const n = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+  if (typeof data.free === "number") return n(data.free) + n(data.pieCash) + n(data.blocked);
+  const c = data.cash;
+  if (c && typeof c.availableToTrade === "number") {
+    return n(c.availableToTrade) + n(c.inPies) + n(c.reservedForOrders);
+  }
+  return null;
+}
+
 // ── PIN lock helpers ──────────────────────────────────────────────────────────
 // The PIN is hashed with a random salt via SHA-256 before storage.
 // The plaintext PIN never leaves the browser and is never sent anywhere.
@@ -1190,6 +1207,7 @@ export default function App() {
   const [wcKind, setWcKind] = useState("want");
   const [worthSaveError, setWorthSaveError] = useState(null);
   const [portfolio, setPortfolio] = useState(null);   // null=never fetched, []=empty, [{…}]=loaded
+  const [cashBalance, setCashBalance] = useState(null);  // null=unknown (never fetched, or T212 wouldn't say)
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState(null);
   const [netWorthSnapshots, setNetWorthSnapshots] = useState([]);
@@ -1300,9 +1318,29 @@ export default function App() {
     document.title = `${names[tab] ?? tab} — Ledger`;
   }, [tab]);
 
+  // Uninvested cash lives on a different endpoint from positions. `equity/account/cash` is
+  // the legacy sibling of the `equity/portfolio` call below; newer API keys answer on
+  // `equity/account/summary` instead. Try one then the other and read whichever shape comes
+  // back. Resolves to null rather than throwing — a missing cash reading should leave the
+  // holdings that did load intact.
+  async function fetchCashBalance() {
+    for (const endpoint of ["equity/account/cash", "equity/account/summary"]) {
+      try {
+        const r = await fetch(`/api/trading212?endpoint=${endpoint}`);
+        if (!r.ok) continue;
+        const cash = readCashBalance(await r.json());
+        if (cash !== null) return cash;
+      } catch {
+        /* fall through to the next endpoint */
+      }
+    }
+    return null;
+  }
+
   async function loadPortfolio() {
     setPortfolioLoading(true);
     setPortfolioError(null);
+    const cashRequest = fetchCashBalance();   // kicked off in parallel with the positions call
     try {
       const r = await fetch("/api/trading212?endpoint=equity/portfolio");
       const data = await r.json();
@@ -1311,6 +1349,7 @@ export default function App() {
     } catch (err) {
       setPortfolioError(err.message);
     } finally {
+      setCashBalance(await cashRequest);
       setPortfolioLoading(false);
     }
   }
@@ -1419,6 +1458,7 @@ export default function App() {
         setMerchantRules([]);
         setPlanner(PLANNER_DEFAULT);
         setPortfolio(null);
+        setCashBalance(null);
         setPortfolioError(null);
         setLoading(false);
       }
@@ -2201,6 +2241,11 @@ export default function App() {
   const pfTotalInvested = sortedPortfolio.reduce((s, p) => s + p.quantity * (p.averagePrice ?? p.averageBuyPrice ?? 0), 0);
   const pfTotalPnL      = sortedPortfolio.reduce((s, p) => s + (p.ppl ?? 0), 0);
   const pfPnLPct        = pfTotalInvested > 0 ? (pfTotalPnL / pfTotalInvested) * 100 : 0;
+  // What the T212 account is actually worth: uninvested cash plus the market value of the
+  // positions. Holds up when either side is zero — a fresh deposit with nothing bought yet
+  // still reads as the full cash balance.
+  const pfCash          = cashBalance ?? 0;
+  const pfAccountValue  = pfCash + pfTotalValue;
 
   // ── Net worth derived ──────────────────────────────────────────────────────
 
@@ -3299,11 +3344,11 @@ export default function App() {
           <>
             <TabHeader
               eyebrow="Investments"
-              sub={portfolio === null && portfolioLoading ? "loading your portfolio…" : "your Trading 212 portfolio"}
+              sub={portfolio === null && portfolioLoading ? "loading your portfolio…" : "your Trading 212 account"}
             >
               {portfolio === null
                 ? <span style={{ color: "var(--text-3)" }}>{portfolioLoading ? "…" : "—"}</span>
-                : <CountUp value={pfTotalValue} prefix="€" />}
+                : <CountUp value={pfAccountValue} prefix="€" />}
             </TabHeader>
             {portfolioLoading && (
               <div className="card">
@@ -3335,8 +3380,12 @@ export default function App() {
               <>
                 <div className="metric-row">
                   {[
-                    { label: "Portfolio value", value: `€${pfTotalValue.toFixed(2)}` },
-                    { label: "Total invested",  value: `€${pfTotalInvested.toFixed(2)}` },
+                    { label: "Account value",   value: `€${pfAccountValue.toFixed(2)}`,
+                      sub: "cash + invested" },
+                    { label: "Free cash",      value: cashBalance === null ? "—" : `€${pfCash.toFixed(2)}`,
+                      sub: cashBalance === null ? "unavailable" : "uninvested" },
+                    { label: "Portfolio value", value: `€${pfTotalValue.toFixed(2)}`,
+                      sub: `€${pfTotalInvested.toFixed(2)} invested` },
                     { label: "Profit / Loss",   value: `${pfTotalPnL >= 0 ? "+" : ""}€${pfTotalPnL.toFixed(2)}`,
                       sub: `${pfPnLPct >= 0 ? "+" : ""}${pfPnLPct.toFixed(2)}%`, warn: pfTotalPnL < 0 },
                   ].map((m) => (
@@ -3350,7 +3399,13 @@ export default function App() {
 
                 {sortedPortfolio.length === 0 ? (
                   <div className="card">
-                    <EmptyState icon="investments" headline="No positions yet" sub="Your Trading 212 portfolio is empty — positions will appear here once you invest" />
+                    <EmptyState
+                      icon="investments"
+                      headline="No positions yet"
+                      sub={pfCash > 0
+                        ? `€${pfCash.toFixed(2)} is sitting in cash — positions will appear here once you invest it`
+                        : "Your Trading 212 portfolio is empty — positions will appear here once you invest"}
+                    />
                   </div>
                 ) : (
                   <div className="inv-grid">
