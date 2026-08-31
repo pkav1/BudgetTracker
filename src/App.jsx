@@ -135,19 +135,56 @@ function catForDesc(desc) {
 
 // ── Trading 212 helpers ───────────────────────────────────────────────────────
 
+const t212Num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
 // Every euro in the account that isn't in a position: settled cash, cash parked inside
 // pies, and cash reserved against pending orders (still yours, just earmarked). Handles
 // both API shapes — the legacy `equity/account/cash` one and the newer
 // `equity/account/summary` one — and returns null if it recognises neither.
 function readCashBalance(data) {
   if (!data || typeof data !== "object") return null;
-  const n = (v) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
-  if (typeof data.free === "number") return n(data.free) + n(data.pieCash) + n(data.blocked);
+  if (typeof data.free === "number") {
+    return t212Num(data.free) + t212Num(data.pieCash) + t212Num(data.blocked);
+  }
   const c = data.cash;
   if (c && typeof c.availableToTrade === "number") {
-    return n(c.availableToTrade) + n(c.inPies) + n(c.reservedForOrders);
+    return t212Num(c.availableToTrade) + t212Num(c.inPies) + t212Num(c.reservedForOrders);
   }
   return null;
+}
+
+// One position, flattened to the three figures the Investments tab actually sums.
+//
+// Currency is the whole point here. `currentPrice` and `averagePricePaid` are documented as
+// being in INSTRUMENT currency, so quantity * currentPrice on a US holding is dollars — sum
+// those into a EUR account and the total is overstated by the FX rate. `/equity/positions`
+// nests the account-currency figures under `walletImpact` (its `fxImpact` sibling exists
+// only when instrument currency differs from the account's, which is what pins walletImpact
+// to account currency). The legacy `/equity/portfolio` shape has no walletImpact at all, so
+// positions from it are flagged `converted: false` and the UI says the numbers are unconverted
+// rather than passing dollars off as euros.
+function normalisePosition(p) {
+  const ticker   = p.instrument?.ticker ?? p.ticker ?? "—";
+  const quantity = t212Num(p.quantity);
+  const w = p.walletImpact;
+  if (w && typeof w.currentValue === "number") {
+    return {
+      ticker,
+      quantity,
+      value: t212Num(w.currentValue),
+      cost: t212Num(w.totalCost),
+      pnl: t212Num(w.unrealizedProfitLoss),
+      converted: true,
+    };
+  }
+  return {
+    ticker,
+    quantity,
+    value: quantity * t212Num(p.currentPrice),
+    cost: quantity * t212Num(p.averagePrice ?? p.averagePricePaid ?? p.averageBuyPrice),
+    pnl: t212Num(p.ppl),
+    converted: false,
+  };
 }
 
 // ── PIN lock helpers ──────────────────────────────────────────────────────────
@@ -1337,15 +1374,31 @@ export default function App() {
     return null;
   }
 
+  // `equity/positions` is the current endpoint and the only one that reports each holding in
+  // account currency; `equity/portfolio` is the legacy fallback for keys that don't serve it.
+  // Both are normalised to the same shape — see normalisePosition for the currency caveat.
+  async function fetchPositions() {
+    let lastError = null;
+    for (const endpoint of ["equity/positions", "equity/portfolio"]) {
+      try {
+        const r = await fetch(`/api/trading212?endpoint=${endpoint}`);
+        const data = await r.json();
+        if (!r.ok) { lastError = new Error(data.error || `HTTP ${r.status}`); continue; }
+        const items = Array.isArray(data) ? data : (data.items ?? []);
+        return items.map(normalisePosition);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError ?? new Error("Could not load positions");
+  }
+
   async function loadPortfolio() {
     setPortfolioLoading(true);
     setPortfolioError(null);
     const cashRequest = fetchCashBalance();   // kicked off in parallel with the positions call
     try {
-      const r = await fetch("/api/trading212?endpoint=equity/portfolio");
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      setPortfolio(Array.isArray(data) ? data : (data.items ?? []));
+      setPortfolio(await fetchPositions());
     } catch (err) {
       setPortfolioError(err.message);
     } finally {
@@ -2234,13 +2287,16 @@ export default function App() {
 
   // ── Portfolio derived ──────────────────────────────────────────────────────
 
-  const sortedPortfolio = portfolio
-    ? [...portfolio].sort((a, b) => (b.quantity * b.currentPrice) - (a.quantity * a.currentPrice))
-    : [];
-  const pfTotalValue    = sortedPortfolio.reduce((s, p) => s + p.quantity * p.currentPrice, 0);
-  const pfTotalInvested = sortedPortfolio.reduce((s, p) => s + p.quantity * (p.averagePrice ?? p.averageBuyPrice ?? 0), 0);
-  const pfTotalPnL      = sortedPortfolio.reduce((s, p) => s + (p.ppl ?? 0), 0);
+  // Positions arrive pre-flattened by normalisePosition, with value/cost/pnl already in
+  // account currency — summing raw currentPrice here would mix dollars into a euro total.
+  const sortedPortfolio = portfolio ? [...portfolio].sort((a, b) => b.value - a.value) : [];
+  const pfTotalValue    = sortedPortfolio.reduce((s, p) => s + p.value, 0);
+  const pfTotalInvested = sortedPortfolio.reduce((s, p) => s + p.cost, 0);
+  const pfTotalPnL      = sortedPortfolio.reduce((s, p) => s + p.pnl, 0);
   const pfPnLPct        = pfTotalInvested > 0 ? (pfTotalPnL / pfTotalInvested) * 100 : 0;
+  // Only true if a holding came back on the legacy endpoint, where the figures above are in
+  // the instrument's own currency rather than euros. The UI flags it instead of hiding it.
+  const pfUnconverted   = sortedPortfolio.some((p) => !p.converted);
   // What the T212 account is actually worth: uninvested cash plus the market value of the
   // positions. Holds up when either side is zero — a fresh deposit with nothing bought yet
   // still reads as the full cash balance.
@@ -3397,6 +3453,14 @@ export default function App() {
                   ))}
                 </div>
 
+                {pfUnconverted && (
+                  <div className="worth-rate-hint" style={{ marginTop: -14, marginBottom: 20 }}>
+                    Trading 212 returned these holdings without account-currency figures, so
+                    values are in each instrument's own currency and a non-euro holding will
+                    read high. Totals above are not directly comparable to the T212 app.
+                  </div>
+                )}
+
                 {sortedPortfolio.length === 0 ? (
                   <div className="card">
                     <EmptyState
@@ -3421,8 +3485,8 @@ export default function App() {
                         <span className="inv-right">P&amp;L</span>
                       </div>
                       {sortedPortfolio.map((p, i) => {
-                        const value   = p.quantity * p.currentPrice;
-                        const pnl     = p.ppl ?? 0;
+                        const value   = p.value;
+                        const pnl     = p.pnl;
                         const ticker  = p.ticker.split("_")[0];
                         const qty     = p.quantity % 1 === 0 ? p.quantity : p.quantity.toFixed(4);
                         return (
@@ -3446,7 +3510,7 @@ export default function App() {
                       <div className="chart-wrap" style={{ height: 320 }}>
                         <DoughnutChart
                           labels={sortedPortfolio.map((p) => p.ticker.split("_")[0])}
-                          data={sortedPortfolio.map((p) => parseFloat((p.quantity * p.currentPrice).toFixed(2)))}
+                          data={sortedPortfolio.map((p) => parseFloat(p.value.toFixed(2)))}
                           colors={sortedPortfolio.map((_, i) => CHART_COLORS[i % CHART_COLORS.length])}
                           textColor={darkMode ? "#a0a0a0" : "#52514e"}
                         />
